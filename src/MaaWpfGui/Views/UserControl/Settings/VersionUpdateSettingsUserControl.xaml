@@ -11,7 +11,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:s="https://github.com/canton7/Stylet"
     xmlns:settings_vms="clr-namespace:MaaWpfGui.ViewModels.UserControl.Settings"
-    xmlns:uiBehaviors="clr-namespace:MaaWpfGui.Extensions.UIBehaviors"
     d:Background="White"
     d:DataContext="{d:DesignInstance {x:Type settings_vms:VersionUpdateSettingsUserControlModel}}"
     d:DesignWidth="540"
@@ -84,17 +83,6 @@
                     </CheckBox>
                     <controls:TooltipBlock TooltipText="{DynamicResource ShowUpdaterProgressTip}" />
                 </StackPanel>
-                <StackPanel
-                    Margin="8"
-                    Orientation="Horizontal"
-                    Visibility="{c:Binding 'UpdateSource == &quot;Github&quot;'}">
-                    <CheckBox
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center"
-                        Content="{DynamicResource ForceGithubGlobalSource}"
-                        IsChecked="{Binding ForceGithubGlobalSource}" />
-                    <controls:TooltipBlock TooltipText="{DynamicResource ForceGithubGlobalSourceTip}" />
-                </StackPanel>
                 <StackPanel Margin="8">
                     <StackPanel Margin="0,0,0,5" Orientation="Horizontal">
                         <controls:TextBlock
@@ -111,80 +99,6 @@
                         ItemsSource="{Binding VersionTypeList}"
                         SelectedValue="{Binding VersionType}"
                         SelectedValuePath="Value" />
-                </StackPanel>
-
-                <StackPanel>
-                    <StackPanel Margin="8">
-                        <StackPanel Margin="0,0,0,5" Orientation="Horizontal">
-                            <controls:TextBlock
-                                Margin="8,0,0,0"
-                                HorizontalAlignment="Left"
-                                Text="{DynamicResource UpdateSource}" />
-                            <controls:TooltipBlock TooltipMaxWidth="350" TooltipText="{DynamicResource UpdateSourceTip}" />
-                        </StackPanel>
-                        <hc:ComboBox
-                            Width="150"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            DisplayMemberPath="Display"
-                            ItemsSource="{Binding UpdateSourceList}"
-                            SelectedValue="{Binding UpdateSource}"
-                            SelectedValuePath="Value" />
-                    </StackPanel>
-                    <StackPanel
-                        Margin="8"
-                        HorizontalAlignment="Left"
-                        Visibility="{c:Binding 'UpdateSource == &quot;MirrorChyan&quot;'}">
-                        <controls:TextBlock Margin="8,0,0,5" HorizontalAlignment="Left">
-                            <TextBlock.Text>
-                                <MultiBinding StringFormat="{}{0} CDK">
-                                    <Binding Source="{StaticResource MirrorChyan}" />
-                                </MultiBinding>
-                            </TextBlock.Text>
-                        </controls:TextBlock>
-                        <Grid Width="150">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <hc:PasswordBox
-                                hc:BorderElement.CornerRadius="4,0,0,4"
-                                IsSafeEnabled="False"
-                                ShowEyeButton="True"
-                                UnsafePassword="{Binding MirrorChyanCdk}" />
-                            <Button
-                                Grid.Column="1"
-                                hc:BorderElement.CornerRadius="0,4,4,0"
-                                BorderThickness="0,1,1,1"
-                                Command="{s:Action MirrorChyanCdkCopy}"
-                                Content="{DynamicResource Copy}" />
-                        </Grid>
-                        <controls:TextBlock
-                            MaxWidth="150"
-                            Margin="0,5,0,0"
-                            Foreground="{DynamicResource ErrorLogBrush}"
-                            Text="{DynamicResource MirrorChyanCdkFetchFailed}"
-                            TextWrapping="Wrap"
-                            Visibility="{c:Binding MirrorChyanCdkFetchFailed}" />
-                        <controls:TextBlock
-                            MaxWidth="150"
-                            Margin="0,5,0,0"
-                            d:Foreground="{DynamicResource SuccessLogBrush}"
-                            d:Text="{DynamicResource MirrorChyanCdkRemainingDays}"
-                            uiBehaviors:ResourceReferenceHelper.ForegroundResourceKey="{Binding MirrorChyanCdkRemainingBrush}"
-                            Text="{Binding MirrorChyanCdkRemainingText}"
-                            TextWrapping="Wrap"
-                            ToolTip="{Binding MirrorChyanCdkExpiredLocalTime}"
-                            Visibility="{c:Binding 'MirrorChyanCdkRemainingText != &quot;&quot;'}" />
-                    </StackPanel>
-                    <controls:TextBlock HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Hyperlink
-                            Cursor="Hand"
-                            NavigateUri="{Binding Source={x:Static constants:MaaUrls.MirrorChyanWebsite}}"
-                            TextDecorations="None">
-                            <TextBlock Text="{DynamicResource MirrorChyan}" />
-                        </Hyperlink>
-                    </controls:TextBlock>
                 </StackPanel>
             </StackPanel>
             <Grid

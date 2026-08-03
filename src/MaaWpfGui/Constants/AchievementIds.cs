@@ -73,10 +73,6 @@ public static class AchievementIds
     public const string ScheduleMaster1 = "ScheduleMaster1";
     public const string ScheduleMaster2 = "ScheduleMaster2";
 
-    public const string MirrorChyanGroup = "MirrorChyan";
-    public const string MirrorChyanFirstUse = "MirrorChyanFirstUse";
-    public const string MirrorChyanCdkError = "MirrorChyanCdkError";
-
     public const string MosquitoLeg = "MosquitoLeg";
 
     public const string PioneerGroup = "Pioneer";

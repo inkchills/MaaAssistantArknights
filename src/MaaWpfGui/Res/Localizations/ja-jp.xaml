@@ -411,9 +411,8 @@
     • {key=ResourceUpdate}：自動戦闘用の新ステージ、ドロップ認識用アイコン、公募タグなどの素材データを含みます
     • ナビホットパッチ：自動でトリガーされ、ホーム画面のヒントやイベントステージ入口を更新します。成功すると右上に ｢{key=ApiUpdateSuccess}｣ と表示されます
 </system:String>
-    <system:String x:Key="GlobalSource">グローバルソース</system:String>
-    <system:String x:Key="ForceGithubGlobalSource">GitHub を強制使用</system:String>
-    <system:String x:Key="ForceGithubGlobalSourceTip">更新を検出後、Githubから強制的に更新パッケージをダウンロード</system:String>
+    <system:String x:Key="GlobalSource">GitHub 高速ソース</system:String>
+    <system:String x:Key="ResourceUpdateAvailableTip">リソース更新が検出されました: {0}</system:String>
     <system:String x:Key="MirrorChyan">MirrorChyan</system:String>
     <system:String x:Key="MirrorChyanSelectedButNoCdk">｢{key=Settings} - {key=UpdateSettings}｣ に移動して MirrorChyan CDK を設定するか、グローバル ソースに切り替えてください。</system:String>
     <system:String x:Key="MirrorChyanResourceUpdateTip">リソース更新 {0} が検出されました。 ｢{key=Settings} - {key=UpdateSettings} - {key=ResourceUpdate}｣ に移動して手動で更新するか、MirrorChayn CDK を入力して自動的に更新してください。</system:String>

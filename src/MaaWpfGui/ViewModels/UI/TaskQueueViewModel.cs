@@ -784,7 +784,6 @@ public class TaskQueueViewModel : Screen
                 AchievementTrackerHelper.Instance.Unlock(AchievementIds.Time325);
             }
 
-            VersionUpdateSettingsUserControlModel.Instance.RefreshMirrorChyanCdkRemaining();
             HandleDatePromptUpdate();
             HandleCheckForUpdates();
 

@@ -684,9 +684,6 @@ public class AchievementTrackerHelper : PropertyChangedBase
         FeatureExploration(id: AchievementIds.ScheduleMaster1, group: AchievementIds.ScheduleMasterGroup, target: 1, groupIndex: 1), // 定时执行
         FeatureExploration(id: AchievementIds.ScheduleMaster2, group: AchievementIds.ScheduleMasterGroup, target: 100, groupIndex: 2),
 
-        FeatureExploration(id: AchievementIds.MirrorChyanFirstUse, group: AchievementIds.MirrorChyanGroup, isHidden: true), // 第一次成功使用 MirrorChyan 下载
-        FeatureExploration(id: AchievementIds.MirrorChyanCdkError, group: AchievementIds.MirrorChyanGroup, isHidden: true), // MirrorChyan CDK 错误
-
         FeatureExploration(id: AchievementIds.Pioneer1, group: AchievementIds.PioneerGroup, groupIndex: 1), // 将 MAA 更新至公测版
         FeatureExploration(id: AchievementIds.Pioneer2, group: AchievementIds.PioneerGroup, isHidden: true, groupIndex: 2), // 将 MAA 更新至内测版（隐藏）
         FeatureExploration(id: AchievementIds.Pioneer3, group: AchievementIds.PioneerGroup, isHidden: true, groupIndex: 3), // 使用未发布版本的 MAA（隐藏）

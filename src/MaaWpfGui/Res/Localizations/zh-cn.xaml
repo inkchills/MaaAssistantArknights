@@ -411,9 +411,8 @@
     • {key=ResourceUpdate}：包含自动战斗新关卡、掉落识别图标、公招干员标签等素材数据
     • 导航热更：自动触发，用于更新主界面提示与活动关卡入口。成功后右上角会显示 ｢{key=ApiUpdateSuccess}｣
 </system:String>
-    <system:String x:Key="GlobalSource">海外源</system:String>
-    <system:String x:Key="ForceGithubGlobalSource">强制使用 GitHub</system:String>
-    <system:String x:Key="ForceGithubGlobalSourceTip">检测到更新后，强制从 GitHub 下载更新包</system:String>
+    <system:String x:Key="GlobalSource">GitHub 加速源</system:String>
+    <system:String x:Key="ResourceUpdateAvailableTip">检测到资源更新: {0}</system:String>
     <system:String x:Key="MirrorChyan">Mirror酱</system:String>
     <system:String x:Key="MirrorChyanSelectedButNoCdk">请前往 ｢{key=Settings} - {key=UpdateSettings}｣ 配置 Mirror酱 CDK 或切换海外源。</system:String>
     <system:String x:Key="MirrorChyanResourceUpdateTip">检测到资源更新: {0}。请前往 ｢{key=Settings} - {key=UpdateSettings} - {key=ResourceUpdate}｣ 手动更新，或配置 Mirror酱 CDK 以自动更新。</system:String>
@@ -426,7 +425,7 @@
     <system:String x:Key="MirrorChyanCdkRemainingDays">CDK 还剩 {0} 天到期。</system:String>
     <system:String x:Key="MirrorChyanCdkFetchFailed">获取 CDK 信息失败，已显示上次成功查询的结果。</system:String>
     <system:String x:Key="NewVersionFoundTitle">检测到新版本</system:String>
-    <system:String x:Key="NewVersionFoundDescDownloadingWithGlobalSource">正在使用 ｢{key=GlobalSource}｣ 下载……</system:String>
+    <system:String x:Key="NewVersionFoundDescDownloadingWithGlobalSource">正在通过 ｢{key=GlobalSource}｣ 下载……</system:String>
     <system:String x:Key="NewVersionFoundDescDownloadingWithMirrorChyan">正在使用 ｢{key=MirrorChyan}｣ 下载……</system:String>
     <system:String x:Key="NewVersionFoundDescId" xml:space="preserve">版本号: </system:String>
     <system:String x:Key="NewVersionFoundDescInfo" xml:space="preserve">更新信息: </system:String>
