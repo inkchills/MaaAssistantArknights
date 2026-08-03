@@ -11,6 +11,7 @@
 // but WITHOUT ANY WARRANTY
 // </copyright>
 
+using System;
 using MaaWpfGui.Configuration.Factory;
 
 namespace MaaWpfGui.Constants;
@@ -80,15 +81,37 @@ public static class MaaUrls
         _ => $"{GitHubIssues}/new?assignees=&labels=bug&template=en-bug-report.yaml",
     };
 
-    // 资源更新更新源
-    public const string GithubResourceUpdate = "https://github.com/MaaAssistantArknights/MaaResource/archive/refs/heads/main.zip";
+    // GitHub 加速代理（edgeone.gh-proxy.org）
+    public const string GithubProxy = "https://edgeone.gh-proxy.org/";
 
-    // MirrorChyan
-    public const string MirrorChyanDomain = "https://mirrorchyan.com";
-    public const string MirrorChyanWebsite = $"{MirrorChyanDomain}?source=maawpfgui-settings";
-    public const string MirrorChyanAppUpdate = $"{MirrorChyanDomain}/api/resources/MAA/latest";
-    public const string MirrorChyanResourceUpdate = $"{MirrorChyanDomain}/api/resources/MaaResource/latest";
-    public const string MirrorChyanManualUpdate = $"{MirrorChyanDomain}/zh/projects?rid=MAA&source=maawpfgui-manualupdate";
+    /// <summary>
+    /// 将 GitHub / raw.githubusercontent.com 链接转换为加速代理地址。
+    /// </summary>
+    public static string GetGithubProxyUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return url;
+        }
+
+        if (url.StartsWith(GithubProxy, StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
+
+        if (url.Contains("github.com", StringComparison.OrdinalIgnoreCase) ||
+            url.Contains("githubusercontent.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return GithubProxy + url;
+        }
+
+        return url;
+    }
+
+    // 资源更新更新源
+    public static string GithubResourceUpdate => GetGithubProxyUrl("https://github.com/MaaAssistantArknights/MaaResource/archive/refs/heads/main.zip");
+
+    public static string GithubResourceVersionJson => GetGithubProxyUrl("https://raw.githubusercontent.com/MaaAssistantArknights/MaaResource/main/resource/version.json");
 
     // 企鹅物流
     public const string PenguinIoDomain = "https://penguin-stats.io";

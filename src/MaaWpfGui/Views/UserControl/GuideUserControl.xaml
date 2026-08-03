@@ -3,7 +3,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:c="clr-namespace:CalcBinding;assembly=CalcBinding"
-    xmlns:constants="clr-namespace:MaaWpfGui.Constants"
     xmlns:controls="clr-namespace:MaaWpfGui.Styles.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dd="urn:gong-wpf-dragdrop"
@@ -15,7 +14,6 @@
     xmlns:s="https://github.com/canton7/Stylet"
     xmlns:settings="clr-namespace:MaaWpfGui.Views.UserControl.Settings"
     xmlns:taskQueue="clr-namespace:MaaWpfGui.Views.UserControl.TaskQueue"
-    xmlns:uiBehaviors="clr-namespace:MaaWpfGui.Extensions.UIBehaviors"
     xmlns:ui_vms="clr-namespace:MaaWpfGui.ViewModels.UI"
     d:Background="White"
     d:DataContext="{d:DesignInstance ui_vms:SettingsViewModel}"
@@ -746,74 +744,6 @@
                                         ItemsSource="{Binding VersionTypeList}"
                                         SelectedValue="{Binding VersionType}"
                                         SelectedValuePath="Value" />
-                                </StackPanel>
-                                <StackPanel>
-                                    <StackPanel
-                                        Margin="8,0,0,5"
-                                        HorizontalAlignment="Center"
-                                        Orientation="Horizontal">
-                                        <controls:TextBlock Text="{DynamicResource UpdateSource}" />
-                                        <controls:TooltipBlock TooltipMaxWidth="350" TooltipText="{DynamicResource UpdateSourceTip}" />
-                                    </StackPanel>
-                                    <hc:ComboBox
-                                        Width="200"
-                                        VerticalAlignment="Center"
-                                        DisplayMemberPath="Display"
-                                        ItemsSource="{Binding UpdateSourceList}"
-                                        SelectedValue="{Binding UpdateSource}"
-                                        SelectedValuePath="Value" />
-                                </StackPanel>
-                                <StackPanel>
-                                    <StackPanel Visibility="{c:Binding 'UpdateSource == &quot;MirrorChyan&quot;'}">
-                                        <controls:TextBlock Margin="8,0,0,5" HorizontalAlignment="Center">
-                                            <TextBlock.Text>
-                                                <MultiBinding StringFormat="{}{0} CDK">
-                                                    <Binding Source="{StaticResource MirrorChyan}" />
-                                                </MultiBinding>
-                                            </TextBlock.Text>
-                                        </controls:TextBlock>
-                                        <Grid Width="200">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <hc:PasswordBox
-                                                hc:BorderElement.CornerRadius="4,0,0,4"
-                                                IsSafeEnabled="False"
-                                                ShowEyeButton="True"
-                                                UnsafePassword="{Binding MirrorChyanCdk}" />
-                                            <Button
-                                                Grid.Column="1"
-                                                hc:BorderElement.CornerRadius="0,4,4,0"
-                                                BorderThickness="0,1,1,1"
-                                                Command="{s:Action MirrorChyanCdkCopy}"
-                                                Content="{DynamicResource Copy}" />
-                                        </Grid>
-                                        <controls:TextBlock
-                                            MaxWidth="300"
-                                            Margin="0,5,0,0"
-                                            Foreground="{DynamicResource ErrorLogBrush}"
-                                            Text="{DynamicResource MirrorChyanCdkFetchFailed}"
-                                            TextWrapping="Wrap"
-                                            Visibility="{c:Binding MirrorChyanCdkFetchFailed}" />
-                                        <controls:TextBlock
-                                            MaxWidth="300"
-                                            Margin="0,5,0,0"
-                                            d:Foreground="{DynamicResource SuccessLogBrush}"
-                                            d:Text="{DynamicResource MirrorChyanCdkRemainingDays}"
-                                            uiBehaviors:ResourceReferenceHelper.ForegroundResourceKey="{Binding MirrorChyanCdkRemainingBrush}"
-                                            Text="{Binding MirrorChyanCdkRemainingText}"
-                                            TextWrapping="Wrap"
-                                            ToolTip="{Binding MirrorChyanCdkExpiredLocalTime}" />
-                                    </StackPanel>
-                                    <controls:TextBlock HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Hyperlink
-                                            Cursor="Hand"
-                                            NavigateUri="{Binding Source={x:Static constants:MaaUrls.MirrorChyanWebsite}}"
-                                            TextDecorations="None">
-                                            <TextBlock Text="{DynamicResource MirrorChyan}" />
-                                        </Hyperlink>
-                                    </controls:TextBlock>
                                 </StackPanel>
                             </hc:UniformSpacingPanel>
                         </hc:TransitioningContentControl>

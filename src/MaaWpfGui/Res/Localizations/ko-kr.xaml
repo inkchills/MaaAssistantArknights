@@ -411,9 +411,8 @@
     • {key=ResourceUpdate}: 자동 전투용 신규 스테이지, 드롭 아이콘, 공개모집 태그 등의 리소스 데이터가 포함됩니다
     • 내비 핫픽스: 자동으로 실행되어 메인 화면 하단의 안내 및 이벤트 스테이지 입구를 업데이트합니다. 성공 시 우측 상단에 “{key=ApiUpdateSuccess}” 메시지가 표시됩니다
 </system:String>
-    <system:String x:Key="GlobalSource">글로벌 소스</system:String>
-    <system:String x:Key="ForceGithubGlobalSource">GitHub 강제 사용</system:String>
-    <system:String x:Key="ForceGithubGlobalSourceTip">업데이트 감지 후, Github에서 강제로 업데이트 패키지 다운로드</system:String>
+    <system:String x:Key="GlobalSource">GitHub 가속 소스</system:String>
+    <system:String x:Key="ResourceUpdateAvailableTip">리소스 업데이트 감지: {0}</system:String>
     <system:String x:Key="MirrorChyan">MirrorChyan</system:String>
     <system:String x:Key="MirrorChyanSelectedButNoCdk">｢{key=Settings} - {key=UpdateSettings}｣ 으로 이동하여 MirrorChyan CDK를 구성하거나 글로벌 소스로 전환하세요.</system:String>
     <system:String x:Key="MirrorChyanResourceUpdateTip">리소스 업데이트 {0}이 감지되었습니다. ｢{key=Settings} - {key=UpdateSettings} - {key=ResourceUpdate}｣ 로 이동하여 수동으로 업데이트하거나, MirrorChyan CDK를 입력하여 자동으로 업데이트하세요.</system:String>

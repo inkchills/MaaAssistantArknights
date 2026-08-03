@@ -36,14 +36,6 @@ public partial class Update
 
     public bool HasAcknowledgedNightlyWarning { get; set; }
 
-    public string UpdateSource { get; set; } = "GitHub";
-
-    public bool ForceGithubGlobalSource { get; set; }
-
-    public string MirrorChyanCdk { get; set; } = string.Empty;
-
-    public long MirrorChyanCdkExpiredTime { get; set; }
-
     public bool CheckOnStartup { get; set; } = true;
 
     public bool CheckOnSchedule { get; set; }

@@ -233,7 +233,7 @@ public static class ConfigurationKeys
     public const string ProxyType = "VersionUpdate.ProxyType"; // √
     public const string VersionType = "VersionUpdate.VersionType"; // √
 
-    // MirrorChyanCdk 迁到新配置的话就直接叫 UpdateSource，现在本体更新也加上了 MirrorChyan
+    // 旧版更新源相关配置键（迁移时清理）
     public const string UpdateSource = "VersionUpdate.ResourceUpdateSource"; // √
     public const string ForceGithubGlobalSource = "VersionUpdate.UpdateSource.ForceGithubGlobalSource"; // √
     public const string MirrorChyanCdk = "VersionUpdate.ResourceUpdateSource.MirrorChyanCdk"; // √

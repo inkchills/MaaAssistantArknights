@@ -163,12 +163,10 @@ class Updater:
             pattern = r"^MAA-.*-" + re.escape(system_platform) + r"\.(zip|tar\.gz)$"
             match = re.match(pattern, assets_name)
             if match:
-                # Mirrors镜像列表
-                mirrors = assets["mirrors"]
                 github_url = assets["browser_download_url"]
-                # 加上GitHub的release链接
-                mirrors.append(github_url)
-                return mirrors, assets_name
+                # 通过 GitHub 加速代理下载，不再使用国内镜像
+                proxy_url = "https://edgeone.gh-proxy.org/" + github_url
+                return [proxy_url], assets_name
         return False, False
 
     def update(self):

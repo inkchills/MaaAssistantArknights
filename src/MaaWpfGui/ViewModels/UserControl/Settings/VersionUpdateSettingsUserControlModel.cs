@@ -248,133 +248,6 @@ public class VersionUpdateSettingsUserControlModel : PropertyChangedBase
         }
     } = ConfigFactory.Root.Update.HasAcknowledgedNightlyWarning;
 
-    public LocalizedObservableList<string> UpdateSourceList { get; } = new(
-        ("Github", "GlobalSource"),
-        ("MirrorChyan", "MirrorChyan"));
-
-    /// <summary>
-    /// Gets or sets the type of version to update.
-    /// </summary>
-    public string UpdateSource
-    {
-        get; set {
-            SetAndNotify(ref field, value);
-            ConfigFactory.Root.Update.UpdateSource = value;
-        }
-    } = ConfigFactory.Root.Update.UpdateSource;
-
-    public bool ForceGithubGlobalSource
-    {
-        get; set {
-            SetAndNotify(ref field, value);
-            ConfigFactory.Root.Update.ForceGithubGlobalSource = value;
-        }
-    } = ConfigFactory.Root.Update.ForceGithubGlobalSource;
-
-    public string MirrorChyanCdk
-    {
-        get; set {
-            if (string.IsNullOrEmpty(value))
-            {
-                MirrorChyanCdkExpiredTime = 0;
-            }
-
-            if (!SetAndNotify(ref field, value))
-            {
-                return;
-            }
-
-            if (value.Length == 24)
-            {
-                Task.Run(async () => {
-                    await Instances.VersionUpdateDialogViewModel.VersionUpdateAndAskToRestartAsync();
-                    await ResourceUpdater.ResourceUpdateAndReloadAsync();
-                });
-            }
-
-            ConfigFactory.Root.Update.MirrorChyanCdk = SimpleEncryptionHelper.Encrypt(value);
-        }
-    } = SimpleEncryptionHelper.Decrypt(ConfigFactory.Root.Update.MirrorChyanCdk);
-
-    // 0 表示未设置，1 表示未设置且已过期
-    public long MirrorChyanCdkExpiredTime
-    {
-        get; set {
-            if (!SetAndNotify(ref field, value))
-            {
-                return;
-            }
-
-            ConfigFactory.Root.Update.MirrorChyanCdkExpiredTime = value;
-            RefreshMirrorChyanCdkRemaining();
-        }
-    } = ConfigFactory.Root.Update.MirrorChyanCdkExpiredTime;
-
-    public bool MirrorChyanCdkFetchFailed { get; set => SetAndNotify(ref field, value); }
-
-    public DateTimeOffset MirrorChyanCdkExpiredDateTime => DateTimeOffset.FromUnixTimeSeconds(MirrorChyanCdkExpiredTime);
-
-    public DateTime MirrorChyanCdkExpiredLocalTime => MirrorChyanCdkExpiredDateTime.LocalDateTime;
-
-    /// <summary>
-    /// Gets 剩余时间
-    /// </summary>
-    public TimeSpan MirrorChyanCdkRemaining => MirrorChyanCdkExpiredDateTime - DateTimeOffset.Now;
-
-    /// <summary>
-    /// Gets a value indicating whether 是否已过期
-    /// </summary>
-    public bool IsMirrorChyanCdkExpired => MirrorChyanCdkRemaining.TotalSeconds <= 0;
-
-    /// <summary>
-    /// Gets 显示用的剩余时间提示
-    /// </summary>
-    public string MirrorChyanCdkRemainingText =>
-        MirrorChyanCdkExpiredTime != 0
-        ? IsMirrorChyanCdkExpired
-            ? LocalizationHelper.GetString("MirrorChyanCdkExpired")
-            : LocalizationHelper.GetStringFormat("MirrorChyanCdkRemainingDays",
-                            MirrorChyanCdkRemaining.TotalDays.ToString("F1"))
-        : string.Empty;
-
-    /// <summary>
-    /// Gets uI 显示用颜色
-    /// </summary>
-    public string MirrorChyanCdkRemainingBrush
-    {
-        get {
-            if (IsMirrorChyanCdkExpired)
-            {
-                return UiLogColor.Error;
-            }
-
-            if (MirrorChyanCdkRemaining.TotalDays <= 7)
-            {
-                return UiLogColor.Warning;
-            }
-
-            return UiLogColor.Success;
-        }
-    }
-
-    public void RefreshMirrorChyanCdkRemaining()
-    {
-        OnPropertyChanged(nameof(MirrorChyanCdkExpiredDateTime));
-        OnPropertyChanged(nameof(MirrorChyanCdkRemaining));
-        OnPropertyChanged(nameof(IsMirrorChyanCdkExpired));
-        OnPropertyChanged(nameof(MirrorChyanCdkRemainingText));
-        OnPropertyChanged(nameof(MirrorChyanCdkRemainingBrush));
-        OnPropertyChanged(nameof(MirrorChyanCdkExpiredLocalTime));
-    }
-
-    // UI 绑定的方法
-    [UsedImplicitly]
-    public void MirrorChyanCdkCopy()
-    {
-        Clipboard.Clear();
-        Clipboard.SetDataObject(MirrorChyanCdk);
-    }
-
     /// <summary>
     /// Gets or sets a value indicating whether to check update.
     /// </summary>
@@ -499,12 +372,6 @@ public class VersionUpdateSettingsUserControlModel : PropertyChangedBase
             return;
         }
 
-        if (SettingsViewModel.VersionUpdateSettings.UpdateSource == "MirrorChyan" && string.IsNullOrEmpty(SettingsViewModel.VersionUpdateSettings.MirrorChyanCdk))
-        {
-            ToastNotification.ShowDirect(LocalizationHelper.GetString("MirrorChyanSelectedButNoCdk"));
-            return;
-        }
-
         var ret = await Instances.VersionUpdateDialogViewModel.CheckAndDownloadVersionUpdate();
 
         var toastMessage = ret switch {
@@ -517,7 +384,6 @@ public class VersionUpdateSettingsUserControlModel : PropertyChangedBase
             VersionUpdateDialogViewModel.CheckUpdateRetT.OK => string.Empty,
             VersionUpdateDialogViewModel.CheckUpdateRetT.NewVersionIsBeingBuilt => LocalizationHelper.GetString("NewVersionIsBeingBuilt"),
             VersionUpdateDialogViewModel.CheckUpdateRetT.OnlyGameResourceUpdated => LocalizationHelper.GetString("GameResourceUpdated"),
-            VersionUpdateDialogViewModel.CheckUpdateRetT.NoMirrorChyanCdk => LocalizationHelper.GetString("MirrorChyanSelectedButNoCdk"),
             _ => string.Empty,
         };
 
@@ -545,15 +411,9 @@ public class VersionUpdateSettingsUserControlModel : PropertyChangedBase
             return;
         }
 
-        if (SettingsViewModel.VersionUpdateSettings.UpdateSource == "MirrorChyan" && string.IsNullOrEmpty(SettingsViewModel.VersionUpdateSettings.MirrorChyanCdk))
-        {
-            ToastNotification.ShowDirect(LocalizationHelper.GetString("MirrorChyanSelectedButNoCdk"));
-            return;
-        }
-
         IsCheckingForUpdates = true;
 
-        var (ret, uri, releaseNote) = await ResourceUpdater.CheckFromMirrorChyanAsync();
+        var (ret, _) = await ResourceUpdater.CheckFromGithubAsync();
         var toastMessage = ret switch {
             VersionUpdateDialogViewModel.CheckUpdateRetT.AlreadyLatest => LocalizationHelper.GetString("AlreadyLatest"),
             VersionUpdateDialogViewModel.CheckUpdateRetT.UnknownError => LocalizationHelper.GetString("NewVersionDetectFailedTitle"),
@@ -572,11 +432,7 @@ public class VersionUpdateSettingsUserControlModel : PropertyChangedBase
             return;
         }
 
-        bool success = UpdateSource switch {
-            "Github" => await ResourceUpdater.UpdateFromGithubAsync(),
-            "MirrorChyan" => (ret == VersionUpdateDialogViewModel.CheckUpdateRetT.OK) && await ResourceUpdater.DownloadFromMirrorChyanAsync(uri, releaseNote),
-            _ => await ResourceUpdater.UpdateFromGithubAsync(),
-        };
+        bool success = await ResourceUpdater.UpdateFromGithubAsync();
 
         if (success)
         {
@@ -616,6 +472,5 @@ public class VersionUpdateSettingsUserControlModel : PropertyChangedBase
     private void RefreshLocalization()
     {
         AllVersionTypeList.RefreshLocalization();
-        UpdateSourceList.RefreshLocalization();
     }
 }
