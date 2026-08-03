@@ -907,7 +907,12 @@ public class VersionUpdateDialogViewModel : Screen
         // v{Major}.{Minor}.{Patch}-{Prerelease}.{CommitDistance}.g{CommitHash}
         // v4.6.7-beta.2.1.g1234567
         // v4.6.8-5.g1234567
-        var lastId = version.PrereleaseIdentifiers.LastOrDefault().ToString();
+        if (version.PrereleaseIdentifiers.Count == 0)
+        {
+            return false;
+        }
+
+        var lastId = version.PrereleaseIdentifiers[^1].ToString();
         return lastId.StartsWith('g') && lastId.Length >= 7;
     }
 }
