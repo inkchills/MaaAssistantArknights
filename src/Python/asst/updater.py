@@ -15,9 +15,13 @@ from .utils import Version
 
 
 class Updater:
-    # API的地址
-    Mirrors = ["https://api.maa.plus"]
-    Summary_json = "/MaaAssistantArknights/api/version/summary.json"
+    # 软件版本更新走 fork Releases；资源更新仍由 GUI 侧走上游 MaaResource
+    Fork_releases_apis = [
+        "https://edgeone.gh-proxy.org/"
+        "https://api.github.com/repos/inkchills/MaaAssistantArknights/releases",
+        "https://api.github.com/repos/inkchills/MaaAssistantArknights/releases",
+    ]
+    Github_proxy = "https://edgeone.gh-proxy.org/"
 
     @staticmethod
     def custom_print(s):
@@ -67,105 +71,86 @@ class Updater:
 
     def get_latest_version(self):
         """
-        从API获取最新版本
+        从 fork GitHub Releases 获取最新版本，返回 (tag, release_object)
         """
-        api_url = self.Mirrors
-        version_summary = self.Summary_json
-        retry = 3
-        for retry_times in range(retry):
-            # 在重试次数限制内依次请求每一个镜像
-            i = retry_times % len(api_url)
-            request_url = api_url[i] + version_summary
+        version_type = self.map_version_type(self.version)
+        releases = None
+        for api in self.Fork_releases_apis:
+            req = request.Request(
+                api,
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "MaaPythonUpdater",
+                },
+            )
             try:
-                response_json = request.urlopen(request_url)
-                response_data = json.loads(response_json.read().decode("utf-8"))
-                """
-                解析JSON
-                e.g.
-                {
-                  "alpha": {
-                    "version": "v4.24.0-beta.1.d006.g27dee653d",
-                    "detail": "https://api.maa.plus/MaaAssistantArknights/api/version/alpha.json"
-                  },
-                  "beta": {
-                    "version": "v4.24.0-beta.1",
-                    "detail": "https://api.maa.plus/MaaAssistantArknights/api/version/beta.json"
-                  },
-                  "stable": {
-                    "version": "v4.23.3",
-                    "detail": "https://api.maa.plus/MaaAssistantArknights/api/version/stable.json"
-                  }
-                }
-                """
-                version_type = self.map_version_type(self.version)
-                latest_version = response_data[version_type]["version"]
-                version_detail = response_data[version_type]["detail"]
-                return latest_version, version_detail
+                with request.urlopen(req) as response_json:
+                    data = json.loads(response_json.read().decode("utf-8"))
+                if isinstance(data, list):
+                    releases = data
+                    break
+                self.custom_print(data.get("message", data))
             except Exception as e:
                 self.custom_print(e)
                 continue
+
+        if not releases:
+            return False, False
+
+        fallback_stable = None
+        for release in releases:
+            if release.get("draft"):
+                continue
+            tag = release.get("tag_name") or ""
+            prerelease = bool(release.get("prerelease"))
+            if not prerelease and fallback_stable is None:
+                fallback_stable = release
+
+            accepted = False
+            if version_type == "stable":
+                accepted = not prerelease
+            elif version_type == "beta":
+                accepted = (not prerelease) or ("beta" in tag.lower())
+            else:
+                accepted = True
+
+            if accepted:
+                return tag, release
+
+        if version_type == "beta" and fallback_stable:
+            return fallback_stable.get("tag_name"), fallback_stable
         return False, False
 
     @staticmethod
-    def get_download_url(detail):
+    def get_download_url(release):
         """
         1.获取系统及架构信息
         2.找到对应的版本
-        3.返回镜像url列表&文件名
-        """
-        """
-        获取系统信息，包括：
-            架构：ARM、x86
-            系统：Linux、Windows
-        默认Windows x86_64
+        3.返回加速代理 url 列表 & 文件名
         """
         system_platform = "win-x64"
         system = platform.system()
         if system == "Linux":
             machine = platform.machine()
             if machine == "aarch64":
-                # Linux aarch64
                 system_platform = "linux-aarch64"
             else:
-                # Linux x86
                 system_platform = "linux-x86_64"
         elif system == "Windows":
             machine = platform.machine()
             if machine == "AMD64" or machine == "x86_64":
-                # Windows x86-64
                 system_platform = "win-x64"
             else:
-                # Windows ARM64
                 system_platform = "win-arm64"
-        # 请求的是https://api.maa.plus/MaaAssistantArknights/api/version/stable.json，或其他版本类型对应的url
-        detail_json = request.urlopen(detail)
-        detail_data = json.loads(detail_json.read().decode("utf-8"))
-        assets_list = detail_data["details"]["assets"]  # 列表，子元素为字典
-        # 找到对应系统和架构的版本
+
+        assets_list = release.get("assets") or []
+        pattern = r"^MAA-.*-" + re.escape(system_platform) + r"\.(zip|tar\.gz)$"
         for assets in assets_list:
-            """
-            结构示例
-            assets:
-            {
-                "name": "MAA-v4.24.0-beta.1.d006.g27dee653d-win-x64.zip",
-                "size": 145677836,
-                "browser_download_url": "https://github.com/MaaAssistantArknights/MaaRelease/releases/download/v4.24.0-beta.1.d006.g27dee653d/MAA-v4.24.0-beta.1.d006.g27dee653d-win-x64.zip",
-                "mirrors": [
-                  "https://s3.maa-org.net:25240/maa-release/MaaAssistantArknights/MaaRelease/releases/download/v4.24.0-beta.1.d006.g27dee653d/MAA-v4.24.0-beta.1.d006.g27dee653d-win-x64.zip",
-                  "https://agent.imgg.dev/MaaAssistantArknights/MaaRelease/releases/download/v4.24.0-beta.1.d006.g27dee653d/MAA-v4.24.0-beta.1.d006.g27dee653d-win-x64.zip",
-                  "https://maa.r2.imgg.dev/MaaAssistantArknights/MaaRelease/releases/download/v4.24.0-beta.1.d006.g27dee653d/MAA-v4.24.0-beta.1.d006.g27dee653d-win-x64.zip"
-                ]
-            }
-            """
-            assets_name = assets["name"]  # 示例值:MAA-v4.24.0-beta.1-win-arm64.zip
-            # 正则匹配（用于选择当前系统及架构的版本）
-            # 在线等一个不这么蠢的方法
-            pattern = r"^MAA-.*-" + re.escape(system_platform) + r"\.(zip|tar\.gz)$"
+            assets_name = assets["name"]
             match = re.match(pattern, assets_name)
             if match:
                 github_url = assets["browser_download_url"]
-                # 通过 GitHub 加速代理下载，不再使用国内镜像
-                proxy_url = "https://edgeone.gh-proxy.org/" + github_url
+                proxy_url = Updater.Github_proxy + github_url
                 return [proxy_url], assets_name
         return False, False
 
@@ -175,9 +160,8 @@ class Updater:
         """
         # 从dll获取MAA的版本
         current_version = self.cur_version
-        # 从API获取最新版本
-        # latest_version：版本号; version_detail：对应的json地址
-        latest_version, version_detail = self.get_latest_version()
+        # 从 fork Releases 获取最新版本
+        latest_version, release = self.get_latest_version()
         if not latest_version:  # latest_version为False代表获取失败
             self.custom_print("获取版本信息失败")
         elif (
@@ -187,9 +171,7 @@ class Updater:
         else:
             self.custom_print(f"检测到最新版本:{latest_version}，正在更新")
             # 开始更新逻辑
-            # 解析version_detail的JSON信息
-            # 通过API获取下载地址列表和对应文件名
-            url_list, filename = self.get_download_url(version_detail)
+            url_list, filename = self.get_download_url(release)
             if not url_list:
                 # 如果请求失败则返回False
                 # （此返回值可能会在非Windows-x86_64的程序更新alpha版时出现）

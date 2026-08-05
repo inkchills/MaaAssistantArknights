@@ -24,8 +24,23 @@ public static class MaaUrls
 
     public const string BilibiliVideo = "https://www.bilibili.com/video/";
 
+    /// <summary>
+    /// 上游主仓库（文档 / Issue 等外链仍指向这里）。
+    /// </summary>
     public const string GitHub = "https://github.com/MaaAssistantArknights/MaaAssistantArknights";
 
+    /// <summary>
+    /// 本 fork 仓库：软件版本更新从此处的 Releases 拉取。
+    /// </summary>
+    public const string ForkGitHub = "https://github.com/inkchills/MaaAssistantArknights";
+
+    public const string ForkGitHubOwner = "inkchills";
+
+    public const string ForkGitHubRepo = "MaaAssistantArknights";
+
+    /// <summary>
+    /// 游戏资源仍走上游 MaaResource 仓库。
+    /// </summary>
     public const string ResourceRepository = "https://github.com/MaaAssistantArknights/MaaResource";
 
     public const string GitHubIssues = "https://github.com/MaaAssistantArknights/MaaAssistantArknights/issues";
@@ -108,8 +123,19 @@ public static class MaaUrls
         return url;
     }
 
-    // 资源更新更新源
-    public static string GithubResourceUpdate => GetGithubProxyUrl("https://github.com/MaaAssistantArknights/MaaResource/archive/refs/heads/main.zip");
+    /// <summary>
+    /// 本 fork 的 GitHub Releases API（直连）。
+    /// </summary>
+    public static string ForkReleasesApi =>
+        $"https://api.github.com/repos/{ForkGitHubOwner}/{ForkGitHubRepo}/releases";
+
+    /// <summary>
+    /// 本 fork 的 GitHub Releases API（经加速代理，国内优先尝试）。
+    /// </summary>
+    public static string ForkReleasesApiProxied => GetGithubProxyUrl(ForkReleasesApi);
+
+    // 资源更新：始终使用上游 MaaResource
+    public static string GithubResourceUpdate => GetGithubProxyUrl($"{ResourceRepository}/archive/refs/heads/main.zip");
 
     public static string GithubResourceVersionJson => GetGithubProxyUrl("https://raw.githubusercontent.com/MaaAssistantArknights/MaaResource/main/resource/version.json");
 

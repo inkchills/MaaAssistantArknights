@@ -14,6 +14,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -160,8 +161,6 @@ public class VersionUpdateDialogViewModel : Screen
     private const string MaaReleaseRequestUrlByTag = "repos/MaaAssistantArknights/MaaRelease/releases/tags/";
     private const string InfoRequestUrl = "repos/MaaAssistantArknights/MaaAssistantArknights/releases/tags/";
     */
-
-    private const string MaaUpdateApi = "version/summary.json";
 
     private JObject? _latestJson;
     private JObject? _assetsObject;
@@ -325,7 +324,7 @@ public class VersionUpdateDialogViewModel : Screen
                 return checkRet;
             }
 
-            return await HandleUpdateFromMaaApi();
+            return await HandleUpdateFromGithubRelease();
         }
         finally
         {
@@ -413,7 +412,7 @@ public class VersionUpdateDialogViewModel : Screen
         OutputDownloadProgress(downloading: false, output: LocalizationHelper.GetString("NewVersionDownloadCompletedTitle"));
     }
 
-    private async Task<CheckUpdateRetT> HandleUpdateFromMaaApi()
+    private async Task<CheckUpdateRetT> HandleUpdateFromGithubRelease()
     {
         // 保存新版本的信息
         var name = _latestJson?["name"]?.ToString();
@@ -647,23 +646,28 @@ public class VersionUpdateDialogViewModel : Screen
 
         try
         {
-            return await CheckUpdateByMaaApi();
+            // 软件版本更新走本 fork 的 GitHub Releases；游戏资源更新仍走上游 MaaResource
+            return await CheckUpdateByGithubRelease();
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to check update by Maa API.");
+            _logger.Error(ex, "Failed to check update from fork GitHub Releases.");
             return CheckUpdateRetT.FailedToGetInfo;
         }
     }
 
-    private async Task<CheckUpdateRetT> CheckUpdateByMaaApi()
+    /// <summary>
+    /// 从本 fork 的 GitHub Releases 检查软件更新。
+    /// </summary>
+    private async Task<CheckUpdateRetT> CheckUpdateByGithubRelease()
     {
-        var (_, json) = await Instances.MaaApiService.RequestMaaApiWithCache(MaaUpdateApi);
+        _requiresFullPackageConfirmation = false;
 
-        if (json is null)
+        var releases = await FetchForkReleasesAsync();
+        if (releases is null)
         {
-            _logger.Error("Failed to get update info from Maa API.");
-            return CheckUpdateRetT.FailedToGetInfo;
+            _logger.Error("Failed to get releases from fork repository.");
+            return CheckUpdateRetT.NetworkError;
         }
 
         string versionType = SettingsViewModel.VersionUpdateSettings.VersionType switch {
@@ -672,29 +676,14 @@ public class VersionUpdateDialogViewModel : Screen
             _ => "stable",
         };
 
-        var latestVersion = json[versionType]?["version"]?.ToString();
-
-        latestVersion ??= string.Empty;
-
-        if (!NeedToUpdate(latestVersion))
+        var release = SelectReleaseForChannel(releases, versionType);
+        if (release is null)
         {
-            return CheckUpdateRetT.AlreadyLatest;
+            _logger.Warning("No suitable release found for channel {Channel}", versionType);
+            return CheckUpdateRetT.FailedToGetInfo;
         }
 
-        return await GetVersionDetailsByMaaApi(versionType);
-    }
-
-    private async Task<CheckUpdateRetT> GetVersionDetailsByMaaApi(string versionType)
-    {
-        _requiresFullPackageConfirmation = false;
-
-        var (_, json) = await Instances.MaaApiService.RequestMaaApiWithCache($"version/{versionType}.json", false);
-        if (json is null)
-        {
-            return CheckUpdateRetT.NetworkError;
-        }
-
-        string? latestVersion = json["version"]?.ToString();
+        var latestVersion = release["tag_name"]?.ToString();
         if (string.IsNullOrEmpty(latestVersion))
         {
             return CheckUpdateRetT.FailedToGetInfo;
@@ -706,22 +695,131 @@ public class VersionUpdateDialogViewModel : Screen
         }
 
         _latestVersion = latestVersion;
-        _latestJson = json["details"] as JObject;
-        if (_latestJson == null)
+        _latestJson = release;
+        _assetsObject = SelectWindowsAsset(release, latestVersion);
+
+        if (_assetsObject == null)
         {
-            return CheckUpdateRetT.FailedToGetInfo;
+            _logger.Warning("No Windows package found in release {Tag}", latestVersion);
+            return CheckUpdateRetT.OK; // 仍提示有新版本，但无可下载包
         }
 
-        _assetsObject = null;
-
-        JObject? fullPackage = null;
-
-        var curVersionLower = _curVersion.ToLower();
-        var latestVersionLower = _latestVersion.ToLower();
-        foreach (var curAssets in ((JArray?)_latestJson["assets"])!)
+        // fork 目前只发布完整包，无 OTA
+        var assetName = _assetsObject["name"]?.ToString() ?? string.Empty;
+        if (!assetName.Contains("ota", StringComparison.OrdinalIgnoreCase) &&
+            SettingsViewModel.VersionUpdateSettings.AutoDownloadUpdatePackage)
         {
-            string? name = curAssets["name"]?.ToString().ToLower();
-            if (name == null)
+            _requiresFullPackageConfirmation = true;
+            _logger.Information("Using full package from fork release: {Asset}", assetName);
+            using var toast = new ToastNotification(LocalizationHelper.GetString("NewVersionNoOtaPackage"));
+            toast.Show(30);
+            Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("NewVersionNoOtaPackage"), UiLogColor.Warning);
+        }
+
+        return CheckUpdateRetT.OK;
+    }
+
+    /// <summary>
+    /// 优先经加速代理请求 fork Releases API，失败时回退直连。
+    /// </summary>
+    private async Task<JArray?> FetchForkReleasesAsync()
+    {
+        var headers = new Dictionary<string, string>
+        {
+            ["Accept"] = "application/vnd.github+json",
+            ["X-GitHub-Api-Version"] = "2022-11-28",
+        };
+
+        foreach (var url in new[] { MaaUrls.ForkReleasesApiProxied, MaaUrls.ForkReleasesApi })
+        {
+            try
+            {
+                _logger.Information("Fetching fork releases: {Url}", url);
+                var body = await Instances.HttpService.GetStringAsync(new Uri(url), extraHeader: headers);
+                if (string.IsNullOrEmpty(body))
+                {
+                    continue;
+                }
+
+                // 代理/API 限流时可能返回 { "message": "...", "status": "403" }
+                if (body.TrimStart().StartsWith('{'))
+                {
+                    var obj = JObject.Parse(body);
+                    _logger.Warning("Fork releases API returned object instead of array: {Message}", obj["message"]?.ToString());
+                    continue;
+                }
+
+                return JArray.Parse(body);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to fetch fork releases from {Url}", url);
+            }
+        }
+
+        return null;
+    }
+
+    private static JObject? SelectReleaseForChannel(JArray releases, string versionType)
+    {
+        JObject? fallbackStable = null;
+
+        foreach (var token in releases)
+        {
+            if (token is not JObject release)
+            {
+                continue;
+            }
+
+            if (release["draft"]?.ToObject<bool>() == true)
+            {
+                continue;
+            }
+
+            var tag = release["tag_name"]?.ToString() ?? string.Empty;
+            var prerelease = release["prerelease"]?.ToObject<bool>() ?? false;
+
+            if (!prerelease && fallbackStable is null)
+            {
+                fallbackStable = release;
+            }
+
+            bool accepted = versionType switch {
+                "stable" => !prerelease,
+                "beta" => !prerelease || tag.Contains("beta", StringComparison.OrdinalIgnoreCase),
+                _ => true, // alpha / nightly：取最新（含预发布）
+            };
+
+            if (accepted)
+            {
+                return release;
+            }
+        }
+
+        // beta 通道若尚无 beta tag，回退到最新正式版
+        return versionType == "beta" ? fallbackStable : null;
+    }
+
+    private static JObject? SelectWindowsAsset(JObject release, string latestVersion)
+    {
+        if (release["assets"] is not JArray assets)
+        {
+            return null;
+        }
+
+        var latestVersionLower = latestVersion.ToLowerInvariant();
+        JObject? fullPackage = null;
+        JObject? otaPackage = null;
+
+        foreach (var token in assets)
+        {
+            if (token is not JObject asset)
+            {
+                continue;
+            }
+
+            var name = asset["name"]?.ToString()?.ToLowerInvariant();
+            if (string.IsNullOrEmpty(name) || !name.Contains("win"))
             {
                 continue;
             }
@@ -731,35 +829,18 @@ public class VersionUpdateDialogViewModel : Screen
                 continue;
             }
 
-            if (!name.Contains("win"))
-            {
-                continue;
-            }
-
             if (name.Contains($"maa-{latestVersionLower}-"))
             {
-                fullPackage = curAssets as JObject;
+                fullPackage = asset;
             }
 
-            // ReSharper disable once InvertIf
-            if (name.Contains("ota") && name.Contains($"{curVersionLower}_{latestVersionLower}"))
+            if (name.Contains("ota", StringComparison.Ordinal))
             {
-                _assetsObject = curAssets as JObject;
-                break;
+                otaPackage = asset;
             }
         }
 
-        if (_assetsObject == null && fullPackage != null && SettingsViewModel.VersionUpdateSettings.AutoDownloadUpdatePackage)
-        {
-            _assetsObject = fullPackage;
-            _requiresFullPackageConfirmation = true;
-            _logger.Warning("No OTA package found, but full package found.");
-            using var toast = new ToastNotification(LocalizationHelper.GetString("NewVersionNoOtaPackage"));
-            toast.Show(30);
-            Instances.TaskQueueViewModel.AddLog(LocalizationHelper.GetString("NewVersionNoOtaPackage"), UiLogColor.Warning);
-        }
-
-        return CheckUpdateRetT.OK;
+        return otaPackage ?? fullPackage;
     }
 
     private bool NeedToUpdate(string latestVersion)
