@@ -149,50 +149,59 @@ Bilibili：`张三`、入力可能：`张三`、`张`、`三`
   戦闘回数。  
   :::  
   ::: field name="series" type="number" optional  
-  連戦回数。-1～6。
+  連戦回数。-1～10。
   <br>
   `-1` は切り替えを無効にします。
   <br>
-  `0` は現在利用可能な最大回数に自動的に切り替わります。現在の理智が 6 回未満の場合は、利用可能な最小回数を選択します。
+  `0` は現在利用可能な最大回数に自動的に切り替わります。現在の理智が最大回数未満の場合は、利用可能な最小回数を選択します。
   <br>
-  `1～6` は指定した連戦回数です。  
-  :::  
-  ::: field name="drops" type="object" optional  
-  ドロップ数を指定します。デフォルトで指定なし。キーは item_id、値は数量です。キーは `resource/item_index.json` ファイルを参照できます。  
+  `1～10` は指定した連戦回数です。
   <br>
-  例：`{ "30011": 10, "30062": 5 }`  
+  ::: info サーバー差異
+  入力検証はリソースに `FightSeries-OldMethodFlag` が存在するかどうかで決まります：
   <br>
-  上記はすべて OR 関係です。つまり、いずれかに達するとタスクが停止します。  
-  :::  
-  ::: field name="report_to_penguin" type="boolean" optional default="false"  
-  ペンギン統計にレポートするかどうか。  
-  :::  
-  ::: field name="penguin_id" type="string" optional  
-  ペンギン統計レポート ID。デフォルトは空です。`report_to_penguin` が true の場合のみ有効です。  
-  :::  
-  :::  
-  ::: field name="report_to_yituliu" type="boolean" optional default="false"  
-  一图流にレポートするかどうか。  
-  :::  
-  ::: field name="yituliu_id" type="string" optional  
-  一图流レポート ID。デフォルトは空です。`report_to_yituliu` が true の場合のみ有効です。  
-  :::  
-  ::: field name="server" type="string" optional default="CN"  
-  サーバー。ドロップ認識とアップロードに影響します。
-  <br>
-  オプション：`CN` | `US` | `JP` | `KR`  
-  :::  
-  ::: field name="client_type" type="string" optional  
-  クライアント バージョン。デフォルトは空です。ゲームがクラッシュした場合にクライアントを再起動して接続し直すために使用されます。空の場合、この機能は有効になりません。
-  <br>
-  オプション：`Official` | `Bilibili` | `txwy` | `YoStarEN` | `YoStarJP` | `YoStarKR`  
-  :::  
-  ::: field name="DrGrandet" type="boolean" optional default="false"  
-  理智節約源石モード。源石効果が発生する可能性がある場合にのみ有効です。
-  <br>
-  源石確認画面で待機し、現在の 1 ポイントの理智回復が完了するまで待ってから、すぐに源石を使用します。  
-  :::  
-  ::::
+  - 新リスト（中国版 2026/8/1 以降の主リソース、当該 flag なし）：`-1～10` を受け付け
+  - 旧リスト（海外リソースに当該 flag あり）：`-1～6` のみ受け付け、それより大きい値は拒否
+    <br>
+    海外サーバーは約半年後に追従予定で、その際に上限はリソースに合わせて 10 になります。Windows GUI の連戦回数ドロップダウンは現在固定で 10 まで表示されます。海外で手動で 7～10 を選ぶと、タスク投入時に Core に拒否されます。
+    :::  
+    :::  
+    ::: field name="drops" type="object" optional  
+    ドロップ数を指定します。デフォルトで指定なし。キーは item_id、値は数量です。キーは `resource/item_index.json` ファイルを参照できます。  
+    <br>
+    例：`{ "30011": 10, "30062": 5 }`  
+    <br>
+    上記はすべて OR 関係です。つまり、いずれかに達するとタスクが停止します。  
+    :::  
+    ::: field name="report_to_penguin" type="boolean" optional default="false"  
+    ペンギン統計にレポートするかどうか。  
+    :::  
+    ::: field name="penguin_id" type="string" optional  
+    ペンギン統計レポート ID。デフォルトは空です。`report_to_penguin` が true の場合のみ有効です。  
+    :::  
+    :::  
+    ::: field name="report_to_yituliu" type="boolean" optional default="false"  
+    一图流にレポートするかどうか。  
+    :::  
+    ::: field name="yituliu_id" type="string" optional  
+    一图流レポート ID。デフォルトは空です。`report_to_yituliu` が true の場合のみ有効です。  
+    :::  
+    ::: field name="server" type="string" optional default="CN"  
+    サーバー。ドロップ認識とアップロードに影響します。
+    <br>
+    オプション：`CN` | `US` | `JP` | `KR`  
+    :::  
+    ::: field name="client_type" type="string" optional  
+    クライアント バージョン。デフォルトは空です。ゲームがクラッシュした場合にクライアントを再起動して接続し直すために使用されます。空の場合、この機能は有効になりません。
+    <br>
+    オプション：`Official` | `Bilibili` | `txwy` | `YoStarEN` | `YoStarJP` | `YoStarKR`  
+    :::  
+    ::: field name="DrGrandet" type="boolean" optional default="false"  
+    理智節約源石モード。源石効果が発生する可能性がある場合にのみ有効です。
+    <br>
+    源石確認画面で待機し、現在の 1 ポイントの理智回復が完了するまで待ってから、すぐに源石を使用します。  
+    :::  
+    ::::
 
 <details>
 <summary>Example</summary>
