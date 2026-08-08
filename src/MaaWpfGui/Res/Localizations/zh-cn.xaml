@@ -86,7 +86,7 @@
     <system:String x:Key="ExternalNotificationCustomWebhook.Body">消息体模板</system:String>
     <system:String x:Key="ExternalNotificationCustomWebhook.Placeholders">可用占位符：{title}、{content}、{time}</system:String>
     <system:String x:Key="ExternalNotificationCustomWebhook.Presets">预置模板</system:String>
-    <system:String x:Key="ExternalNotificationCustomWebhook.PresetsPlaceholders">请将预置模板中除 {title}、{content}、{time} 以外的 {} 占位符（如 {nickname}）替换为实际值</system:String>
+    <system:String x:Key="ExternalNotificationCustomWebhook.PresetsPlaceholders">请将预制模板中的 &lt;&gt; 占位符（如 &lt;nickname&gt;）替换为实际值</system:String>
     <system:String x:Key="ExternalNotificationCustomWebhook.TemplateCustom">自定义</system:String>
     <system:String x:Key="ExternalNotificationCustomWebhook.TemplateMeoW">MeoW</system:String>
     <system:String x:Key="UseGpuForInference">使用 GPU 加速推理</system:String>
@@ -531,7 +531,7 @@ D:\
     <system:String x:Key="AdbTouchMode">ADB Input（不推荐使用）</system:String>
     <system:String x:Key="MaaFwAdbTouchMode">MaaFramework（实验功能）</system:String>
     <system:String x:Key="MumuExtrasTouchMode">MuMu 触控增强（实验功能）</system:String>
-    <system:String x:Key="TouchModeTip" xml:space="preserve">ADB Input 用于兼容系统版本过低、无法运行 Minitouch 或 MaaTouch 的实体机设备。能用前两种模式时，不要选择 ADB Input。&#10;ADB Input 的滑动容易拖飞，为避免此问题，滑动速度会设置得非常慢，且滑动距离与前两种模式不同；在需要精确控制坐标的场景下无法使用。</system:String>
+    <system:String x:Key="TouchModeTip" xml:space="preserve">ADB Input 仅用于兼容系统版本过低的实体机设备。能用其他模式时，不要选择 ADB Input。&#10;ADB Input 的滑动容易拖飞，为避免此问题，滑动速度会设置得非常慢，且滑动距离与其他模式不同；在需要精确控制坐标的场景下无法使用。</system:String>
     <system:String x:Key="AdditionCommand">附加命令</system:String>
     <system:String x:Key="AdditionCommandTip" xml:space="preserve">附加命令用于指定模拟器启动参数（如 ｢--instance 1｣ 表示启动 1 号实例）。&#10;不同模拟器的命令格式不同，通常包括实例编号、窗口模式等参数，请参考您使用的模拟器文档</system:String>
     <system:String x:Key="StartsWithScript">开始前脚本</system:String>
@@ -701,10 +701,10 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Notifications\Settin
     <system:String x:Key="AdbPathFileSelectionErrorImSure">我确定没选错</system:String>
     <system:String x:Key="AdbPathFileSelectionErrorSelectAgain">好的，我会重新选择</system:String>
     <system:String x:Key="ConnectionAddress">连接地址</system:String>
-    <system:String x:Key="ConnectionAddressTip">若遇到问题可尝试手动修改</system:String>
+    <system:String x:Key="ConnectionAddressTip">开启 ｢{key=AutoDetectConnection}｣ 并成功后会自动填入。若检测失败，请查到模拟器的实际端口后填入。</system:String>
     <system:String x:Key="ConnectionPreset">连接配置</system:String>
     <system:String x:Key="ScreenshotTest">截图测试</system:String>
-    <system:String x:Key="MuMu12ExtrasEnabled">启用 MuMu 截图增强模式</system:String>
+    <system:String x:Key="MuMu12ExtrasEnabled">启用 MuMu 截图增强</system:String>
     <system:String x:Key="MuMuExtrasTouchEnabled">启用 MuMu 触控增强（实验性，需 MuMu 模拟器 6.3.2+，支持后台保活）</system:String>
     <system:String x:Key="MuMuEmulatorPathNotFound">未找到 MuMu 模拟器路径。</system:String>
     <system:String x:Key="MuMuExternalRendererMissing" xml:space="preserve">external_renderer_ipc.dll 未在所选 MuMu 安装目录中找到。\n
@@ -731,9 +731,9 @@ C:\\Program Files\\Netease\\MuMuPlayer。\n
     <system:String x:Key="MuMu12Index">实例编号</system:String>
     <system:String x:Key="MuMu12Display">屏幕编号</system:String>
     <system:String x:Key="MuMuExtrasNotEnabledMessage">Mumu 截图增强未生效，请检查相关设置</system:String>
-    <system:String x:Key="MuMuEmulator12KeepAliveOn">检测到 MuMu 开启了后台保活，但 MuMu 触控增强未生效，在后台保活下无法操作。请勾选 ｢{key=MuMuExtrasTouchEnabled}｣ 或在 MuMu 设置中关闭 ｢后台保活｣（或 ｢应用保活｣ ｢后台挂机时保活运行｣ 等）。</system:String>
+    <system:String x:Key="MuMuEmulator12KeepAliveOn">检测到 MuMu 模拟器开启了 ｢应用保活｣，但 MAA 的触控增强未生效，在应用保活下无法操作。请在 MAA ｢{key=ConnectionSettings}｣ 中同时勾选 ｢{key=MuMu12ExtrasEnabled}｣ 及其下的 ｢{key=MuMuExtrasTouchEnabled}｣；或不想使用增强时，请在 MuMu 设置中关闭 ｢应用保活｣（部分版本曾称 ｢后台保活｣ ｢后台挂机时保活运行｣ 等）。</system:String>
     <system:String x:Key="MuMuEmulator12FullExtrasReady">完整 MuMu 增强已就位——截图与触控双核直连贯通，后台保活亦为我所用！</system:String>
-    <system:String x:Key="LdExtrasEnabled">启用 LD 截图增强模式</system:String>
+    <system:String x:Key="LdExtrasEnabled">启用 LD 截图增强</system:String>
     <system:String x:Key="LdPlayerEmulatorPathNotFound">未找到 LDPlayer 模拟器路径。</system:String>
     <system:String x:Key="LdPlayerOpenglMissing">在所选 LDPlayer 路径中未找到 ldopengl64.dll，请确认安装目录。</system:String>
     <system:String x:Key="LdExtrasEnabledTip" xml:space="preserve">
@@ -879,12 +879,13 @@ C:\\leidian\\LDPlayer9
     <system:String x:Key="CollapseAll">折叠</system:String>
     <system:String x:Key="ClearPlans">清空</system:String>
     <system:String x:Key="ClearPlansConfirm">确认要清空所有计划吗？</system:String>
-    <system:String x:Key="DepotPlanInvalidDropItem">计划 {0}：未指定掉落物。</system:String>
-    <system:String x:Key="DepotPlanZeroDropCount">计划 {0}：目标库存为 0。</system:String>
-    <system:String x:Key="DepotPlanNoStage">计划 {0}：关卡未指定或为 ｢当前/上次｣。</system:String>
-    <system:String x:Key="DepotPlanInventoryEnough">计划 {0}：{1} 库存已充足（当前 {2} / 目标 {3}）。</system:String>
-    <system:String x:Key="DepotPlanStageNotOpen">计划 {0}：关卡 ｢{1}｣ 未开放。</system:String>
-    <system:String x:Key="DepotPlanAddTaskFailed">计划 {0}：添加任务失败。</system:String>
+    <system:String x:Key="DepotPlanInvalidDropItem">#{0}：未指定掉落物</system:String>
+    <system:String x:Key="DepotPlanZeroDropCount">#{0}：目标库存为 0</system:String>
+    <system:String x:Key="DepotPlanNoStage">#{0}：关卡未指定或为 ｢当前/上次｣</system:String>
+    <system:String x:Key="DepotPlanInventoryEnough">#{0}：{1} 已充足 {2}/{3}</system:String>
+    <system:String x:Key="DepotPlanInventoryInsufficient">#{0}：{1} 不足 {2}/{3}，需刷取 {4}</system:String>
+    <system:String x:Key="DepotPlanStageNotOpen">#{0}：关卡 ｢{1}｣ 未开放</system:String>
+    <system:String x:Key="DepotPlanAddTaskFailed">#{0}：添加任务失败</system:String>
     <system:String x:Key="DepotSkipDuringActivity">活动期间跳过</system:String>
     <system:String x:Key="DepotSkipDuringResourceCollection">资源收集限时全天开放期间跳过</system:String>
     <system:String x:Key="DepotPlanSkippedActivity">当前有活动进行中，已跳过库存保持。</system:String>
