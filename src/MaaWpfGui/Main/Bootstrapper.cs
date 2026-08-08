@@ -77,6 +77,19 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
     [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
     private static extern bool FreeLibrary(IntPtr hModule);
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int FormatMessage(
+        int dwFlags,
+        IntPtr lpSource,
+        int dwMessageId,
+        int dwLanguageId,
+        StringBuilder lpBuffer,
+        int nSize,
+        IntPtr arguments);
+
+    private const int FormatMessageFromSystem = 0x00001000;
+    private const int FormatMessageIgnoreInserts = 0x00000200;
+
     private static List<string> UnknownDllDetected()
     {
         try
@@ -117,10 +130,23 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             handle = LoadLibrary("MaaCore.dll");
 
             // 如果句柄非空，说明 DLL 存在且可加载
-            return handle != IntPtr.Zero;
+            if (handle != IntPtr.Zero)
+            {
+                _logger.Information("LoadLibrary(MaaCore.dll) succeeded, handle={Handle}", handle);
+                return true;
+            }
+
+            var error = Marshal.GetLastWin32Error();
+            _logger.Error(
+                "LoadLibrary(MaaCore.dll) failed: Win32Error={Error} (0x{Error:X8}) {Message}",
+                error,
+                error,
+                FormatWin32Error(error));
+            return false;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.Error(ex, "LoadLibrary(MaaCore.dll) threw exception");
             return false;
         }
         finally
@@ -129,6 +155,165 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             {
                 FreeLibrary(handle); // 释放 DLL 句柄
             }
+        }
+    }
+
+    private static string FormatWin32Error(int error)
+    {
+        try
+        {
+            var buffer = new StringBuilder(1024);
+            var length = FormatMessage(
+                FormatMessageFromSystem | FormatMessageIgnoreInserts,
+                IntPtr.Zero,
+                error,
+                0,
+                buffer,
+                buffer.Capacity,
+                IntPtr.Zero);
+            return length > 0 ? buffer.ToString().Trim() : "(no system message)";
+        }
+        catch
+        {
+            return "(failed to format message)";
+        }
+    }
+
+    /// <summary>
+    /// 本地排查用：记录运行环境与关键原生 DLL 状态到 debug/gui.log。
+    /// </summary>
+    private static void LogLocalRuntimeDiagnostics()
+    {
+        try
+        {
+            _logger.Information("----- Local runtime diagnostics -----");
+            _logger.Information(
+                "OS: {OsDescription}; Version={OsVersion}; Architecture={OsArch}; Process={ProcessArch}; Is64BitProcess={Is64}",
+                RuntimeInformation.OSDescription,
+                Environment.OSVersion,
+                RuntimeInformation.OSArchitecture,
+                RuntimeInformation.ProcessArchitecture,
+                Environment.Is64BitProcess);
+            _logger.Information(
+                "Runtime: {Framework}; CLR={ClrVersion}; BaseDirectory={BaseDir}; CurrentDirectory={Cwd}",
+                RuntimeInformation.FrameworkDescription,
+                Environment.Version,
+                AppContext.BaseDirectory,
+                Directory.GetCurrentDirectory());
+            _logger.Information(
+                "Update sources: ForkReleasesApi={ForkApi}; ForkReleasesApiProxied={ForkApiProxy}; ResourceRepo={ResourceRepo}; GithubProxy={Proxy}",
+                MaaUrls.ForkReleasesApi,
+                MaaUrls.ForkReleasesApiProxied,
+                MaaUrls.ResourceRepository,
+                MaaUrls.GithubProxy);
+
+            string[] criticalFiles =
+            [
+                "MaaCore.dll",
+                "onnxruntime_maa.dll",
+                "opencv_world4_maa.dll",
+                "fastdeploy_ppocr.dll",
+                "DirectML.dll",
+                "MAA.exe",
+                "MaaWpfGui.dll",
+            ];
+
+            foreach (var fileName in criticalFiles)
+            {
+                LogFileDiagnostics(fileName);
+            }
+
+            TryLogSmartAppControlHint();
+            _logger.Information("----- End local runtime diagnostics -----");
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to write local runtime diagnostics");
+        }
+    }
+
+    private static void LogFileDiagnostics(string fileName)
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, fileName);
+            if (!File.Exists(path))
+            {
+                _logger.Warning("Missing critical file: {FileName}", fileName);
+                return;
+            }
+
+            var info = new FileInfo(path);
+            string fileVersion = "n/a";
+            string productVersion = "n/a";
+            try
+            {
+                var versionInfo = FileVersionInfo.GetVersionInfo(path);
+                fileVersion = versionInfo.FileVersion ?? "n/a";
+                productVersion = versionInfo.ProductVersion ?? "n/a";
+            }
+            catch
+            {
+                // ignored
+            }
+
+            string sha256Prefix = "n/a";
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var hash = System.Security.Cryptography.SHA256.HashData(stream);
+                sha256Prefix = Convert.ToHexString(hash.AsSpan(0, 8));
+            }
+            catch
+            {
+                // ignored
+            }
+
+            _logger.Information(
+                "File {FileName}: Size={Size} LastWrite={LastWrite:O} FileVersion={FileVersion} ProductVersion={ProductVersion} SHA256[0:8]={Sha256}",
+                fileName,
+                info.Length,
+                info.LastWriteTimeUtc,
+                fileVersion,
+                productVersion,
+                sha256Prefix);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to inspect file {FileName}", fileName);
+        }
+    }
+
+    private static void TryLogSmartAppControlHint()
+    {
+        try
+        {
+            // Smart App Control / WDAC 拦截未签名原生 DLL 时，常见表现为 Bad Image / 0xC0E90002
+            using var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\CI\Policy");
+            var sac = key?.GetValue("VerifiedAndReputablePolicyState");
+            if (sac is int sacState)
+            {
+                var stateText = sacState switch {
+                    0 => "Off",
+                    1 => "Evaluation",
+                    2 => "Enforcement",
+                    _ => $"Unknown({sacState})",
+                };
+                _logger.Information("Smart App Control VerifiedAndReputablePolicyState={State} ({StateText})", sacState, stateText);
+                if (sacState == 2)
+                {
+                    _logger.Warning(
+                        "Smart App Control is in Enforcement mode. Unsigned native DLLs (e.g. MaaCore.dll) may fail to load with Bad Image / 0xC0E90002.");
+                }
+            }
+            else
+            {
+                _logger.Information("Smart App Control policy value not found (likely unsupported or not configured)");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Information(ex, "Unable to read Smart App Control policy (access denied is normal without admin)");
         }
     }
 
@@ -493,6 +678,7 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
             _logger.Information("MaaDesktopIntegration available: {Available}", MaaDesktopIntegration.Available);
         }
 
+        LogLocalRuntimeDiagnostics();
         _logger.Information("===================================");
 
         // 尽早解析 skip 参数：pending 更新早退重启需要原样转发

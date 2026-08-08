@@ -619,11 +619,35 @@ public class AsstProxy
         }
 
         bool loaded = LoadResource();
+        _logger.Information("Init: LoadResource result={Loaded}", loaded);
 
-        _handle = MaaService.AsstCreateEx(_callback, AsstHandle.Zero);
+        try
+        {
+            _handle = MaaService.AsstCreateEx(_callback, AsstHandle.Zero);
+            _logger.Information("Init: AsstCreateEx handle={Handle}", _handle);
+        }
+        catch (BadImageFormatException ex)
+        {
+            _logger.Fatal(
+                ex,
+                "Init: AsstCreateEx BadImageFormatException (often Smart App Control / WDAC blocking unsigned MaaCore.dll). HRESULT=0x{HResult:X8}",
+                ex.HResult);
+            throw;
+        }
+        catch (DllNotFoundException ex)
+        {
+            _logger.Fatal(ex, "Init: AsstCreateEx DllNotFoundException");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Fatal(ex, "Init: AsstCreateEx failed");
+            throw;
+        }
 
         if (loaded == false || _handle == AsstHandle.Zero)
         {
+            _logger.Error("Init failed: loaded={Loaded}, handle={Handle}", loaded, _handle);
             Execute.OnUIThreadAsync(
                 () => {
                     MessageBoxHelper.Show(LocalizationHelper.GetString("ResourceBroken"), LocalizationHelper.GetString("Error"), iconKey: ResourceToken.FatalGeometry, iconBrushKey: ResourceToken.DangerBrush);

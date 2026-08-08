@@ -84,6 +84,12 @@ public static class ResourceUpdater
             .GetResourceVersionByClientType(SettingsViewModel.GameSettings.ClientType)
             .DateTime;
 
+        _logger.Information(
+            "Check resource update: client={Client}, currentResourceTime={Current:O}, url={Url}",
+            SettingsViewModel.GameSettings.ClientType,
+            currentVersionDateTime,
+            MaaUrls.GithubResourceVersionJson);
+
         HttpResponseMessage? response = null;
         try
         {

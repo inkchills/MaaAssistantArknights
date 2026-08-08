@@ -647,6 +647,12 @@ public class VersionUpdateDialogViewModel : Screen
         try
         {
             // 软件版本更新走本 fork 的 GitHub Releases；游戏资源更新仍走上游 MaaResource
+            _logger.Information(
+                "CheckUpdate: current={Current}, channel={Channel}, fork={Fork}, proxy={Proxy}",
+                VersionUpdateSettingsUserControlModel.UiVersion,
+                SettingsViewModel.VersionUpdateSettings.VersionType,
+                MaaUrls.ForkGitHub,
+                MaaUrls.GithubProxy);
             return await CheckUpdateByGithubRelease();
         }
         catch (Exception ex)
