@@ -633,6 +633,135 @@ public class VersionUpdateDialogViewModel : Screen
         }
     }
 
+    public enum IntegrityRepairResult
+    {
+        /// <summary>
+        /// 修复包已注册，等待重启应用。
+        /// </summary>
+        Succeeded,
+
+        /// <summary>
+        /// 用户取消完整包确认。
+        /// </summary>
+        Canceled,
+
+        /// <summary>
+        /// 解析下载源、下载或注册包失败。
+        /// </summary>
+        Failed,
+    }
+
+    private sealed record ForkRepairPackage(string PackageName, JObject Asset, string DownloadUrl);
+
+    private static string GetUpdateChannel()
+    {
+        return SettingsViewModel.VersionUpdateSettings.VersionType switch {
+            VersionUpdateSettingsUserControlModel.UpdateVersionType.Beta => "beta",
+            VersionUpdateSettingsUserControlModel.UpdateVersionType.Nightly => "alpha",
+            _ => "stable",
+        };
+    }
+
+    /// <summary>
+    /// 资源完整性修复：从本 fork 的 GitHub Releases 重新下载完整包并注册为待应用更新。
+    /// </summary>
+    public async Task<IntegrityRepairResult> RunIntegrityRepairAsync()
+    {
+        _logger.Information("Starting integrity repair via fork GitHub Releases");
+        OutputDownloadProgress(LocalizationHelper.GetString("ResourceIntegrityRepairDownloading"), downloading: false);
+
+        var repairPackage = await ResolveForkRepairPackageAsync();
+        if (repairPackage is null)
+        {
+            FailIntegrityRepair("Integrity repair: no full package resolved from fork Releases");
+            return IntegrityRepairResult.Failed;
+        }
+
+        string plannedPackagePath = GetPlannedUpdatePackagePath(repairPackage.PackageName);
+        if (!ConfirmFullPackageUpdate(plannedPackagePath))
+        {
+            _logger.Information("Integrity repair full package application canceled by user: {PackagePath}", plannedPackagePath);
+            OutputDownloadProgress(LocalizationHelper.GetString("ResourceIntegrityRepairCanceled"), downloading: false);
+            return IntegrityRepairResult.Canceled;
+        }
+
+        _logger.Information("Integrity repair: downloading full package {PackageName}", repairPackage.PackageName);
+        OutputDownloadProgress(LocalizationHelper.GetString("ResourceIntegrityRepairDownloading"), downloading: true);
+
+        string? packagePath = null;
+        if (await DownloadGithubAssets(repairPackage.DownloadUrl, repairPackage.Asset))
+        {
+            packagePath = plannedPackagePath;
+        }
+
+        if (packagePath is null)
+        {
+            FailIntegrityRepair("Integrity repair download failed");
+            return IntegrityRepairResult.Failed;
+        }
+
+        string arch = IsArm ? "arm64" : "x64";
+        var importResult = PendingUpdateApplier.TryRegisterLocalPackage(
+            packagePath,
+            _curVersion,
+            arch,
+            inspection: null,
+            allowSameVersion: true);
+        if (importResult.Status is not PendingUpdateApplier.LocalPackageImportStatus.FullPackageRegistered
+            and not PendingUpdateApplier.LocalPackageImportStatus.OtaPackageRegistered)
+        {
+            _logger.Error("Integrity repair package rejected: status={Status}, packagePath={PackagePath}", importResult.Status, packagePath);
+            FailIntegrityRepair("Integrity repair package rejected");
+            return IntegrityRepairResult.Failed;
+        }
+
+        _logger.Information("Integrity repair package registered: {PackagePath}", packagePath);
+        OutputDownloadProgress(downloading: false, output: LocalizationHelper.GetString("NewVersionDownloadCompletedTitle"));
+        await AskToRestartForImportedPackage();
+        return IntegrityRepairResult.Succeeded;
+    }
+
+    private void FailIntegrityRepair(string reason)
+    {
+        _logger.Error(reason);
+        OutputDownloadProgress(downloading: false, output: LocalizationHelper.GetString("ResourceIntegrityRepairFailed"));
+    }
+
+    private async Task<ForkRepairPackage?> ResolveForkRepairPackageAsync()
+    {
+        try
+        {
+            var releases = await FetchForkReleasesAsync();
+            if (releases is null)
+            {
+                return null;
+            }
+
+            var release = SelectReleaseForChannel(releases, GetUpdateChannel());
+            var latestVersion = release?["tag_name"]?.ToString();
+            if (release is null || string.IsNullOrEmpty(latestVersion))
+            {
+                return null;
+            }
+
+            var asset = SelectWindowsAsset(release, latestVersion, preferOta: false);
+            var rawUrl = asset?["browser_download_url"]?.ToString();
+            var packageName = asset?["name"]?.ToString();
+            if (asset is null || string.IsNullOrEmpty(rawUrl) || string.IsNullOrEmpty(packageName))
+            {
+                _logger.Error("No full Windows package found in fork release {Tag}", latestVersion);
+                return null;
+            }
+
+            return new ForkRepairPackage(packageName, asset, MaaUrls.GetGithubProxyUrl(rawUrl));
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to resolve full package from fork Releases for integrity repair");
+            return null;
+        }
+    }
+
     /// <summary>
     /// 检查更新。
     /// </summary>
@@ -676,11 +805,7 @@ public class VersionUpdateDialogViewModel : Screen
             return CheckUpdateRetT.NetworkError;
         }
 
-        string versionType = SettingsViewModel.VersionUpdateSettings.VersionType switch {
-            VersionUpdateSettingsUserControlModel.UpdateVersionType.Beta => "beta",
-            VersionUpdateSettingsUserControlModel.UpdateVersionType.Nightly => "alpha",
-            _ => "stable",
-        };
+        string versionType = GetUpdateChannel();
 
         var release = SelectReleaseForChannel(releases, versionType);
         if (release is null)
@@ -806,7 +931,7 @@ public class VersionUpdateDialogViewModel : Screen
         return versionType == "beta" ? fallbackStable : null;
     }
 
-    private static JObject? SelectWindowsAsset(JObject release, string latestVersion)
+    private static JObject? SelectWindowsAsset(JObject release, string latestVersion, bool preferOta = true)
     {
         if (release["assets"] is not JArray assets)
         {
@@ -844,6 +969,11 @@ public class VersionUpdateDialogViewModel : Screen
             {
                 otaPackage = asset;
             }
+        }
+
+        if (!preferOta)
+        {
+            return fullPackage;
         }
 
         return otaPackage ?? fullPackage;

@@ -32,7 +32,7 @@ Or manually download and install this runtime library to solve the problem:
 
 - A complete MAA software package is named "MAA-`version`-`platform`-`architecture`.zip"; others are "components" that cannot be used independently. Please read carefully.
   In most cases, you need the x64 architecture of MAA, meaning you should download `MAA-*-win-x64.zip`, not `MAA-*-win-arm64.zip`.
-- If you find missing or non-working features after an automatic update, the update process may have had issues. Please download and extract the complete installation package again. After extraction, drag the `config` folder from your old `MAA` folder into the newly extracted `MAA` folder.
+- If you find missing or non-working features after an automatic update, the update process may have had issues. Please download and extract the complete installation package again. After extraction, copy the `config`, `data`, and `debug` folders from your old `MAA` folder into the newly extracted `MAA` folder to keep your existing settings and logs. The `cache` and `achievement` (screenshots) folders are optional to keep.
 
 ### Runtime library issues
 
@@ -60,6 +60,39 @@ Due to runtime libraries and system components requiring Windows 10 or above, MA
 - Automation tools may trigger heuristic detections in some antivirus engines. A detection result does not always mean the program is malicious.
 - If the source is trusted, submit a false-positive sample to the security vendor and wait for signature updates.
 - While waiting, you can temporarily add the MAA installation directory to antivirus allowlists. Avoid disabling real-time protection entirely.
+
+### "Missing installation files" prompt on startup
+
+On startup, MAA checks installation files against the file list bundled with the installation package (filelist.txt). If this prompt appears, some files have been blocked or removed by security software, or deleted manually, and the corresponding features (such as mini-game tasks) may not work:
+
+- If security software is the cause, restore the removed files from its quarantine area and add the MAA installation directory to its allowlist.
+- You can also choose automatic repair in the dialog (re-download the full package and restore after restart), or reinstall manually following the instructions in the dialog.
+
+### DLL injection issues
+
+If MAA shows a compatibility warning on startup, or crashes / displays rendering anomalies, it is usually caused by third-party software (such as Nahimic) injecting DLLs into MAA. You can resolve this with any of the following methods:
+
+**Method 1: Block DLL injection via Windows Security (recommended)**
+
+1. Open **Windows Security** → **App & browser control** → **Exploit protection** → **Exploit protection settings** → **Program settings**
+2. Click **Add program to customize**, choose **"Add by program name"** and enter `MAA.exe` (or choose **"Choose exact file path"** and locate `MAA.exe` in the MAA installation directory)
+3. Find **"Disable extension points"** in MAA's settings list, check **"Override system settings"** and turn it on
+4. Click **"Apply"** to save, then restart MAA
+
+This setting blocks third-party software from injecting DLLs into MAA at the system level, without affecting other programs.
+
+**Method 2: Rename the injected DLL**
+
+1. Locate the corresponding DLL file at the path shown in the warning (if you cannot see file extensions or the file itself, first enable **"File name extensions"** and **"Hidden items"** under **View → Show** at the top of File Explorer)
+2. Right-click the file → **Rename**, and change the `.dll` extension to an invalid one such as `.dll1`
+
+::: warning
+This method may cause the related software to malfunction. Use it with caution. For more on the root cause, see the [related post](https://t.bilibili.com/1133690423484612615) and [blog](https://blog.walterlv.com/post/wpf-renders-wrong-because-of-nahimicosd.html).
+:::
+
+**Method 3: Handle the related software**
+
+Try adding MAA to the exclusion list of the related software, or uninstall the related software and check whether the problem persists.
 
 ## Connection errors
 
