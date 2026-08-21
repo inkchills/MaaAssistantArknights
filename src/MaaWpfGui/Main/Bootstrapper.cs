@@ -200,12 +200,13 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
                 Environment.Version,
                 AppContext.BaseDirectory,
                 Directory.GetCurrentDirectory());
+            // 此处故意不访问会触发 ConfigFactory/Language 的 MaaUrls 成员，避免配置加载前的类型初始化崩溃
             _logger.Information(
                 "Update sources: ForkReleasesApi={ForkApi}; ResourceRepo={ResourceRepo}; SelectedGithubProxy={Proxy}; GithubProxies={Proxies}",
-                MaaUrls.ForkReleasesApi,
+                $"https://api.github.com/repos/{MaaUrls.ForkGitHubOwner}/{MaaUrls.ForkGitHubRepo}/releases",
                 MaaUrls.ResourceRepository,
-                MaaUrls.GithubProxy,
-                string.Join(", ", MaaUrls.GithubProxies));
+                GithubProxySelector.CurrentProxy,
+                string.Join(", ", GithubProxySelector.AllProxies));
 
             string[] criticalFiles =
             [
@@ -679,17 +680,6 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
         }
 
         LogLocalRuntimeDiagnostics();
-        _ = Task.Run(async () => {
-            try
-            {
-                await GithubProxySelector.EnsureFastestAsync();
-                _logger.Information("Startup GitHub proxy probe selected: {Proxy}", GithubProxySelector.CurrentProxy);
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning(ex, "Startup GitHub proxy probe failed");
-            }
-        });
         _logger.Information("===================================");
 
         // 尽早解析 skip 参数：pending 更新早退重启需要原样转发
@@ -701,6 +691,19 @@ public class Bootstrapper : Bootstrapper<RootViewModel>
 
         ConfigurationHelper.Load();
         LocalizationHelper.Load();
+
+        // 必须在配置 / 本地化加载之后再测速，避免静态初始化与 ConfigFactory Lazy 重入
+        _ = Task.Run(async () => {
+            try
+            {
+                await GithubProxySelector.EnsureFastestAsync();
+                _logger.Information("Startup GitHub proxy probe selected: {Proxy}", GithubProxySelector.CurrentProxy);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Startup GitHub proxy probe failed");
+            }
+        });
         if (PendingUpdateApplier.TryConsumeDelegatedUpdateSuccess())
         {
             _logger.Information("Delegated pending update completed successfully");

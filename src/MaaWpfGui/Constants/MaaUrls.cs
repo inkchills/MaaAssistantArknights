@@ -88,8 +88,8 @@ public static class MaaUrls
     // 基建排班协议文档
     public static string CustomInfrastGenerator => $"{MaaDocs}/{Language}/protocol/base-scheduling-schema.html";
 
-    // 远程控制协议文档
-    public static readonly string RemoteControlDocument = $"{MaaDocs}/{Language}/protocol/remote-control-schema.html";
+    // 远程控制协议文档（必须用属性：字段初始化会在类型加载时访问 ConfigFactory，导致启动期 Lazy 重入崩溃）
+    public static string RemoteControlDocument => $"{MaaDocs}/{Language}/protocol/remote-control-schema.html";
 
     public static string NewIssueUri => Language switch {
         "zh-cn" => $"{GitHubIssues}/new?assignees=&labels=bug&template=cn-bug-report.yaml",
@@ -97,21 +97,13 @@ public static class MaaUrls
         _ => $"{GitHubIssues}/new?assignees=&labels=bug&template=en-bug-report.yaml",
     };
 
-    // GitHub 加速代理列表（资源 / 软件更新前会测速，优先使用最快的）
-    public static readonly string[] GithubProxies =
-    [
-        "https://ghfast.top/",
-        "https://v6.gh-proxy.org/",
-        "https://hk.gh-proxy.org/",
-        "https://cdn.gh-proxy.org/",
-        "https://edgeone.gh-proxy.org/",
-        "https://gh.inkchills.cn/",
-    ];
+    // GitHub 加速代理列表（实际定义在 GithubProxySelector，避免静态初始化互相依赖）
+    public static string[] GithubProxies => GithubProxySelector.AllProxies;
 
     /// <summary>
     /// 默认代理（测速完成前使用）。
     /// </summary>
-    public const string DefaultGithubProxy = "https://edgeone.gh-proxy.org/";
+    public const string DefaultGithubProxy = GithubProxySelector.DefaultProxy;
 
     /// <summary>
     /// 当前选中的最快 GitHub 加速代理。
@@ -121,56 +113,17 @@ public static class MaaUrls
     /// <summary>
     /// 去掉已知代理前缀，还原原始 GitHub / raw 链接。
     /// </summary>
-    public static string StripGithubProxy(string url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return url;
-        }
-
-        foreach (var proxy in GithubProxies)
-        {
-            if (url.StartsWith(proxy, StringComparison.OrdinalIgnoreCase))
-            {
-                return url[proxy.Length..];
-            }
-        }
-
-        return url;
-    }
+    public static string StripGithubProxy(string url) => GithubProxySelector.StripProxy(url);
 
     /// <summary>
     /// 将 GitHub / raw.githubusercontent.com 链接套上指定代理。
     /// </summary>
-    public static string ApplyGithubProxy(string url, string proxy)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return url;
-        }
-
-        var stripped = StripGithubProxy(url);
-        if (!(stripped.Contains("github.com", StringComparison.OrdinalIgnoreCase) ||
-              stripped.Contains("githubusercontent.com", StringComparison.OrdinalIgnoreCase)))
-        {
-            return stripped;
-        }
-
-        if (string.IsNullOrWhiteSpace(proxy))
-        {
-            return stripped;
-        }
-
-        return proxy.EndsWith('/') ? proxy + stripped : proxy + "/" + stripped;
-    }
+    public static string ApplyGithubProxy(string url, string proxy) => GithubProxySelector.ApplyProxy(url, proxy);
 
     /// <summary>
     /// 将 GitHub / raw.githubusercontent.com 链接转换为当前最快加速代理地址。
     /// </summary>
-    public static string GetGithubProxyUrl(string url)
-    {
-        return ApplyGithubProxy(url, GithubProxy);
-    }
+    public static string GetGithubProxyUrl(string url) => ApplyGithubProxy(url, GithubProxy);
 
     /// <summary>
     /// 本 fork 的 GitHub Releases API（直连）。

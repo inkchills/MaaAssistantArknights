@@ -20,17 +20,36 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using MaaWpfGui.Constants;
 using Serilog;
 
 namespace MaaWpfGui.Services.Web;
 
 /// <summary>
 /// 对多个 GitHub 加速代理并行测速，缓存并优先使用最快可用地址。
+/// 注意：本类型的静态初始化不得依赖 <c>MaaUrls</c> / <c>ConfigFactory</c>，
+/// 否则会在配置加载前触发 LocalizationHelper 的 Lazy 重入并导致启动崩溃。
 /// </summary>
 public static class GithubProxySelector
 {
     private static readonly ILogger _logger = Log.ForContext(typeof(GithubProxySelector));
+
+    /// <summary>
+    /// GitHub 加速代理列表（资源 / 软件更新前会测速，优先使用最快的）。
+    /// </summary>
+    public static readonly string[] AllProxies =
+    [
+        "https://ghfast.top/",
+        "https://v6.gh-proxy.org/",
+        "https://hk.gh-proxy.org/",
+        "https://cdn.gh-proxy.org/",
+        "https://edgeone.gh-proxy.org/",
+        "https://gh.inkchills.cn/",
+    ];
+
+    /// <summary>
+    /// 默认代理（测速完成前使用）。
+    /// </summary>
+    public const string DefaultProxy = "https://edgeone.gh-proxy.org/";
 
     /// <summary>
     /// 用于测速的轻量资源（上游 MaaResource version.json）。
@@ -42,8 +61,8 @@ public static class GithubProxySelector
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(30);
 
     private static readonly object LockObj = new();
-    private static string _currentProxy = MaaUrls.DefaultGithubProxy;
-    private static IReadOnlyList<string> _rankedProxies = MaaUrls.GithubProxies;
+    private static string _currentProxy = DefaultProxy;
+    private static IReadOnlyList<string> _rankedProxies = AllProxies;
     private static DateTimeOffset _lastProbeUtc = DateTimeOffset.MinValue;
     private static Task? _inflightProbe;
 
@@ -73,6 +92,52 @@ public static class GithubProxySelector
                 return _rankedProxies;
             }
         }
+    }
+
+    /// <summary>
+    /// 去掉已知代理前缀，还原原始 GitHub / raw 链接。
+    /// </summary>
+    public static string StripProxy(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return url;
+        }
+
+        foreach (var proxy in AllProxies)
+        {
+            if (url.StartsWith(proxy, StringComparison.OrdinalIgnoreCase))
+            {
+                return url[proxy.Length..];
+            }
+        }
+
+        return url;
+    }
+
+    /// <summary>
+    /// 将 GitHub / raw.githubusercontent.com 链接套上指定代理。
+    /// </summary>
+    public static string ApplyProxy(string url, string proxy)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return url;
+        }
+
+        var stripped = StripProxy(url);
+        if (!(stripped.Contains("github.com", StringComparison.OrdinalIgnoreCase) ||
+              stripped.Contains("githubusercontent.com", StringComparison.OrdinalIgnoreCase)))
+        {
+            return stripped;
+        }
+
+        if (string.IsNullOrWhiteSpace(proxy))
+        {
+            return stripped;
+        }
+
+        return proxy.EndsWith('/') ? proxy + stripped : proxy + "/" + stripped;
     }
 
     /// <summary>
@@ -122,11 +187,11 @@ public static class GithubProxySelector
     {
         await EnsureFastestAsync().ConfigureAwait(false);
 
-        var stripped = MaaUrls.StripGithubProxy(originalUrl);
+        var stripped = StripProxy(originalUrl);
         var urls = new List<string>();
         foreach (var proxy in RankedProxies)
         {
-            urls.Add(MaaUrls.ApplyGithubProxy(stripped, proxy));
+            urls.Add(ApplyProxy(stripped, proxy));
         }
 
         if (includeDirect && !urls.Contains(stripped, StringComparer.OrdinalIgnoreCase))
@@ -147,12 +212,12 @@ public static class GithubProxySelector
         };
         client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "MaaWpfGui-GithubProxySelector");
 
-        var tasks = MaaUrls.GithubProxies.Select(proxy => ProbeOneAsync(client, proxy)).ToArray();
+        var tasks = AllProxies.Select(proxy => ProbeOneAsync(client, proxy)).ToArray();
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
 
         var ranked = results
             .OrderBy(r => r.LatencyMs < 0 ? double.MaxValue : r.LatencyMs)
-            .ThenBy(r => Array.IndexOf(MaaUrls.GithubProxies, r.Proxy))
+            .ThenBy(r => Array.IndexOf(AllProxies, r.Proxy))
             .Select(r => r.Proxy)
             .ToArray();
 
@@ -164,7 +229,7 @@ public static class GithubProxySelector
         lock (LockObj)
         {
             _rankedProxies = ranked;
-            _currentProxy = best.Proxy ?? MaaUrls.DefaultGithubProxy;
+            _currentProxy = best.Proxy ?? DefaultProxy;
             _lastProbeUtc = DateTimeOffset.UtcNow;
         }
 
@@ -185,7 +250,7 @@ public static class GithubProxySelector
 
     private static async Task<ProbeResult> ProbeOneAsync(HttpClient client, string proxy)
     {
-        var url = MaaUrls.ApplyGithubProxy(ProbeTarget, proxy);
+        var url = ApplyProxy(ProbeTarget, proxy);
         var sw = Stopwatch.StartNew();
         try
         {
