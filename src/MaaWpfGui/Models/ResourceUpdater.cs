@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using MaaWpfGui.Constants;
 using MaaWpfGui.Extensions;
 using MaaWpfGui.Helper;
+using MaaWpfGui.Services.Web;
 using MaaWpfGui.ViewModels.UI;
 using MaaWpfGui.ViewModels.UserControl.Settings;
 using Newtonsoft.Json;
@@ -39,12 +40,28 @@ public static class ResourceUpdater
     public static async Task<bool> UpdateFromGithubAsync()
     {
         ToastNotification.ShowDirect(LocalizationHelper.GetString("GameResourceUpdating"));
+        await GithubProxySelector.EnsureFastestAsync().ConfigureAwait(false);
 
         const string GithubZipFileName = "MaaResourceGithub.zip";
         string githubZipFile = Path.Combine(PathsHelper.BaseDir, GithubZipFileName);
         string extractFolder = Path.Combine(PathsHelper.BaseDir, "MaaResourceGithub");
 
-        if (!await DownloadFullPackageAsync(MaaUrls.GithubResourceUpdate, githubZipFile).ConfigureAwait(false))
+        var downloadUrls = await GithubProxySelector.GetOrderedProxyUrlsAsync(
+            $"{MaaUrls.ResourceRepository}/archive/refs/heads/main.zip").ConfigureAwait(false);
+        var downloaded = false;
+        foreach (var url in downloadUrls)
+        {
+            _logger.Information("Downloading resource package via {Url}", url);
+            if (await DownloadFullPackageAsync(url, githubZipFile).ConfigureAwait(false))
+            {
+                downloaded = true;
+                break;
+            }
+
+            SafeDeleteFile(githubZipFile);
+        }
+
+        if (!downloaded)
         {
             Fail();
             return false;
@@ -84,20 +101,32 @@ public static class ResourceUpdater
             .GetResourceVersionByClientType(SettingsViewModel.GameSettings.ClientType)
             .DateTime;
 
+        await GithubProxySelector.EnsureFastestAsync().ConfigureAwait(false);
+
+        var versionUrls = await GithubProxySelector.GetOrderedProxyUrlsAsync(
+            "https://raw.githubusercontent.com/MaaAssistantArknights/MaaResource/main/resource/version.json").ConfigureAwait(false);
+
         _logger.Information(
-            "Check resource update: client={Client}, currentResourceTime={Current:O}, url={Url}",
+            "Check resource update: client={Client}, currentResourceTime={Current:O}, preferredProxy={Proxy}",
             SettingsViewModel.GameSettings.ClientType,
             currentVersionDateTime,
-            MaaUrls.GithubResourceVersionJson);
+            GithubProxySelector.CurrentProxy);
 
         HttpResponseMessage? response = null;
-        try
+        foreach (var url in versionUrls)
         {
-            response = await Instances.HttpService.GetAsync(new(MaaUrls.GithubResourceVersionJson), uriPartial: UriPartial.Path);
-        }
-        catch (Exception e)
-        {
-            _logger.Error(e, "Failed to send GET request to {Uri}", MaaUrls.GithubResourceVersionJson);
+            try
+            {
+                response = await Instances.HttpService.GetAsync(new(url), uriPartial: UriPartial.Path);
+                if (response is not null)
+                {
+                    break;
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Error(e, "Failed to send GET request to {Uri}", url);
+            }
         }
 
         if (response is null)

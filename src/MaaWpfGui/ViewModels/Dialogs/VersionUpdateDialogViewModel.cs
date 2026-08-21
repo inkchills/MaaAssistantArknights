@@ -26,6 +26,7 @@ using MaaWpfGui.Helper;
 using MaaWpfGui.Main;
 using MaaWpfGui.Models;
 using MaaWpfGui.Services;
+using MaaWpfGui.Services.Web;
 using MaaWpfGui.States;
 using MaaWpfGui.ViewModels.UI;
 using MaaWpfGui.ViewModels.UserControl.Settings;
@@ -467,10 +468,19 @@ public class VersionUpdateDialogViewModel : Screen
             return CheckUpdateRetT.FailedToGetInfo;
         }
 
-        var downloadUrl = MaaUrls.GetGithubProxyUrl(rawUrl);
-        _logger.Information("Downloading update package via GitHub proxy: {CDNUrl}", downloadUrl);
+        await GithubProxySelector.EnsureFastestAsync();
+        var downloadUrls = await GithubProxySelector.GetOrderedProxyUrlsAsync(rawUrl);
+        var downloaded = false;
+        foreach (var downloadUrl in downloadUrls)
+        {
+            _logger.Information("Downloading update package via: {CDNUrl}", downloadUrl);
+            downloaded = await DownloadGithubAssets(downloadUrl, _assetsObject);
+            if (downloaded)
+            {
+                break;
+            }
+        }
 
-        var downloaded = await DownloadGithubAssets(downloadUrl, _assetsObject);
         if (downloaded)
         {
             OutputDownloadProgress(downloading: false, output: LocalizationHelper.GetString("NewVersionDownloadCompletedTitle"));
@@ -689,9 +699,15 @@ public class VersionUpdateDialogViewModel : Screen
         OutputDownloadProgress(LocalizationHelper.GetString("ResourceIntegrityRepairDownloading"), downloading: true);
 
         string? packagePath = null;
-        if (await DownloadGithubAssets(repairPackage.DownloadUrl, repairPackage.Asset))
+        var downloadUrls = await GithubProxySelector.GetOrderedProxyUrlsAsync(repairPackage.DownloadUrl);
+        foreach (var downloadUrl in downloadUrls)
         {
-            packagePath = plannedPackagePath;
+            _logger.Information("Integrity repair download via: {Url}", downloadUrl);
+            if (await DownloadGithubAssets(downloadUrl, repairPackage.Asset))
+            {
+                packagePath = plannedPackagePath;
+                break;
+            }
         }
 
         if (packagePath is null)
@@ -753,7 +769,7 @@ public class VersionUpdateDialogViewModel : Screen
                 return null;
             }
 
-            return new ForkRepairPackage(packageName, asset, MaaUrls.GetGithubProxyUrl(rawUrl));
+            return new ForkRepairPackage(packageName, asset, rawUrl);
         }
         catch (Exception ex)
         {
@@ -851,7 +867,7 @@ public class VersionUpdateDialogViewModel : Screen
     }
 
     /// <summary>
-    /// 优先经加速代理请求 fork Releases API，失败时回退直连。
+    /// 优先经测速后的加速代理请求 fork Releases API，失败时按测速顺序回退，最后直连。
     /// </summary>
     private async Task<JArray?> FetchForkReleasesAsync()
     {
@@ -861,7 +877,10 @@ public class VersionUpdateDialogViewModel : Screen
             ["X-GitHub-Api-Version"] = "2022-11-28",
         };
 
-        foreach (var url in new[] { MaaUrls.ForkReleasesApiProxied, MaaUrls.ForkReleasesApi })
+        await GithubProxySelector.EnsureFastestAsync();
+        var urls = await GithubProxySelector.GetOrderedProxyUrlsAsync(MaaUrls.ForkReleasesApi);
+
+        foreach (var url in urls)
         {
             try
             {

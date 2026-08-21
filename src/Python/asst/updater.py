@@ -16,12 +16,70 @@ from .utils import Version
 
 class Updater:
     # 软件版本更新走 fork Releases；资源更新仍由 GUI 侧走上游 MaaResource
-    Fork_releases_apis = [
-        "https://edgeone.gh-proxy.org/"
-        "https://api.github.com/repos/inkchills/MaaAssistantArknights/releases",
-        "https://api.github.com/repos/inkchills/MaaAssistantArknights/releases",
+    Github_proxies = [
+        "https://ghfast.top/",
+        "https://v6.gh-proxy.org/",
+        "https://hk.gh-proxy.org/",
+        "https://cdn.gh-proxy.org/",
+        "https://edgeone.gh-proxy.org/",
+        "https://gh.inkchills.cn/",
     ]
-    Github_proxy = "https://edgeone.gh-proxy.org/"
+    Fork_releases_api = (
+        "https://api.github.com/repos/inkchills/MaaAssistantArknights/releases"
+    )
+    Probe_target = (
+        "https://raw.githubusercontent.com/MaaAssistantArknights/"
+        "MaaResource/main/resource/version.json"
+    )
+    _ranked_proxies = None
+
+    @classmethod
+    def _probe_proxies(cls):
+        """并行测速，返回按延迟排序的代理列表。"""
+        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def probe(proxy):
+            url = proxy + cls.Probe_target
+            start = time.perf_counter()
+            try:
+                req = request.Request(
+                    url,
+                    headers={"User-Agent": "MaaPythonUpdater"},
+                )
+                with request.urlopen(req, timeout=5) as resp:
+                    _ = resp.read(256)
+                latency = (time.perf_counter() - start) * 1000
+                return proxy, latency, None
+            except Exception as e:
+                return proxy, None, e
+
+        results = []
+        with ThreadPoolExecutor(max_workers=len(cls.Github_proxies)) as pool:
+            futures = [pool.submit(probe, p) for p in cls.Github_proxies]
+            for fut in as_completed(futures):
+                results.append(fut.result())
+
+        for proxy, latency, err in results:
+            if latency is None:
+                cls.custom_print(f"proxy fail: {proxy} ({err})")
+            else:
+                cls.custom_print(f"proxy ok: {proxy} = {latency:.0f} ms")
+
+        ranked = sorted(
+            results,
+            key=lambda x: x[1] if x[1] is not None else float("inf"),
+        )
+        cls._ranked_proxies = [p for p, _, _ in ranked]
+        best = next((p for p, lat, _ in ranked if lat is not None), cls.Github_proxies[4])
+        cls.custom_print(f"selected proxy: {best}")
+        return cls._ranked_proxies
+
+    @classmethod
+    def ranked_proxies(cls):
+        if cls._ranked_proxies is None:
+            cls._probe_proxies()
+        return cls._ranked_proxies or list(cls.Github_proxies)
 
     @staticmethod
     def custom_print(s):
@@ -75,7 +133,9 @@ class Updater:
         """
         version_type = self.map_version_type(self.version)
         releases = None
-        for api in self.Fork_releases_apis:
+        apis = [p + self.Fork_releases_api for p in self.ranked_proxies()]
+        apis.append(self.Fork_releases_api)
+        for api in apis:
             req = request.Request(
                 api,
                 headers={
@@ -84,7 +144,7 @@ class Updater:
                 },
             )
             try:
-                with request.urlopen(req) as response_json:
+                with request.urlopen(req, timeout=15) as response_json:
                     data = json.loads(response_json.read().decode("utf-8"))
                 if isinstance(data, list):
                     releases = data
@@ -121,12 +181,12 @@ class Updater:
             return fallback_stable.get("tag_name"), fallback_stable
         return False, False
 
-    @staticmethod
-    def get_download_url(release):
+    @classmethod
+    def get_download_url(cls, release):
         """
         1.获取系统及架构信息
         2.找到对应的版本
-        3.返回加速代理 url 列表 & 文件名
+        3.返回按测速排序的加速代理 url 列表 & 文件名
         """
         system_platform = "win-x64"
         system = platform.system()
@@ -150,8 +210,9 @@ class Updater:
             match = re.match(pattern, assets_name)
             if match:
                 github_url = assets["browser_download_url"]
-                proxy_url = Updater.Github_proxy + github_url
-                return [proxy_url], assets_name
+                url_list = [p + github_url for p in cls.ranked_proxies()]
+                url_list.append(github_url)
+                return url_list, assets_name
         return False, False
 
     def update(self):

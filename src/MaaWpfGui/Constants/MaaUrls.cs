@@ -13,6 +13,7 @@
 
 using System;
 using MaaWpfGui.Configuration.Factory;
+using MaaWpfGui.Services.Web;
 
 namespace MaaWpfGui.Constants;
 
@@ -96,31 +97,79 @@ public static class MaaUrls
         _ => $"{GitHubIssues}/new?assignees=&labels=bug&template=en-bug-report.yaml",
     };
 
-    // GitHub 加速代理（edgeone.gh-proxy.org）
-    public const string GithubProxy = "https://edgeone.gh-proxy.org/";
+    // GitHub 加速代理列表（资源 / 软件更新前会测速，优先使用最快的）
+    public static readonly string[] GithubProxies =
+    [
+        "https://ghfast.top/",
+        "https://v6.gh-proxy.org/",
+        "https://hk.gh-proxy.org/",
+        "https://cdn.gh-proxy.org/",
+        "https://edgeone.gh-proxy.org/",
+        "https://gh.inkchills.cn/",
+    ];
 
     /// <summary>
-    /// 将 GitHub / raw.githubusercontent.com 链接转换为加速代理地址。
+    /// 默认代理（测速完成前使用）。
     /// </summary>
-    public static string GetGithubProxyUrl(string url)
+    public const string DefaultGithubProxy = "https://edgeone.gh-proxy.org/";
+
+    /// <summary>
+    /// 当前选中的最快 GitHub 加速代理。
+    /// </summary>
+    public static string GithubProxy => GithubProxySelector.CurrentProxy;
+
+    /// <summary>
+    /// 去掉已知代理前缀，还原原始 GitHub / raw 链接。
+    /// </summary>
+    public static string StripGithubProxy(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
             return url;
         }
 
-        if (url.StartsWith(GithubProxy, StringComparison.OrdinalIgnoreCase))
+        foreach (var proxy in GithubProxies)
+        {
+            if (url.StartsWith(proxy, StringComparison.OrdinalIgnoreCase))
+            {
+                return url[proxy.Length..];
+            }
+        }
+
+        return url;
+    }
+
+    /// <summary>
+    /// 将 GitHub / raw.githubusercontent.com 链接套上指定代理。
+    /// </summary>
+    public static string ApplyGithubProxy(string url, string proxy)
+    {
+        if (string.IsNullOrWhiteSpace(url))
         {
             return url;
         }
 
-        if (url.Contains("github.com", StringComparison.OrdinalIgnoreCase) ||
-            url.Contains("githubusercontent.com", StringComparison.OrdinalIgnoreCase))
+        var stripped = StripGithubProxy(url);
+        if (!(stripped.Contains("github.com", StringComparison.OrdinalIgnoreCase) ||
+              stripped.Contains("githubusercontent.com", StringComparison.OrdinalIgnoreCase)))
         {
-            return GithubProxy + url;
+            return stripped;
         }
 
-        return url;
+        if (string.IsNullOrWhiteSpace(proxy))
+        {
+            return stripped;
+        }
+
+        return proxy.EndsWith('/') ? proxy + stripped : proxy + "/" + stripped;
+    }
+
+    /// <summary>
+    /// 将 GitHub / raw.githubusercontent.com 链接转换为当前最快加速代理地址。
+    /// </summary>
+    public static string GetGithubProxyUrl(string url)
+    {
+        return ApplyGithubProxy(url, GithubProxy);
     }
 
     /// <summary>
@@ -130,11 +179,11 @@ public static class MaaUrls
         $"https://api.github.com/repos/{ForkGitHubOwner}/{ForkGitHubRepo}/releases";
 
     /// <summary>
-    /// 本 fork 的 GitHub Releases API（经加速代理，国内优先尝试）。
+    /// 本 fork 的 GitHub Releases API（经当前最快加速代理）。
     /// </summary>
     public static string ForkReleasesApiProxied => GetGithubProxyUrl(ForkReleasesApi);
 
-    // 资源更新：始终使用上游 MaaResource
+    // 资源更新：始终使用上游 MaaResource（经当前最快加速代理）
     public static string GithubResourceUpdate => GetGithubProxyUrl($"{ResourceRepository}/archive/refs/heads/main.zip");
 
     public static string GithubResourceVersionJson => GetGithubProxyUrl("https://raw.githubusercontent.com/MaaAssistantArknights/MaaResource/main/resource/version.json");
